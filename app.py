@@ -10,13 +10,13 @@ import json  # 계정 정보를 파일에 저장하기 위해 임포트
 import os  # 로컬 저장 파일 경로를 체크하기 위해 임포트
 
 # ==========================================
-# 💡 [다크모드 원천방어] 스트림릿 최초 로드 즉시 화이트 고대비 테마 고정
+# 💡 [다크모드 방어] 스트림릿 기동 즉시 화이트 테마 강제 주입
 # ==========================================
 st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
 
 st.markdown("""
     <style>
-    /* 오류가 나더라도 배경만큼은 강제로 화이트 테마를 유지시킵니다. */
+    /* 하단 연동부에서 로직 에러가 나더라도 브라우저 배경이 다크 모드로 반전되지 않도록 최상단에서 화이트를 고정합니다. */
     .stApp {
         background-color: #FFFFFF !important;
     }
@@ -70,7 +70,7 @@ st.markdown("""
 
 
 # ==========================================
-# 💡 [순서 조정] 전역 변수들의 선행 정의 (NameError 방지)
+# 💡 [날짜 및 전역 상수] 오늘 기준 지난주 월~일 계산 (NameError 방지)
 # ==========================================
 today = datetime.date.today()
 current_weekday = today.weekday()
@@ -104,7 +104,7 @@ def save_accounts(accounts):
 if 'ad_accounts' not in st.session_state:
     st.session_state['ad_accounts'] = load_accounts()
 
-# 입력 폼의 상태를 안정적으로 제어하기 위해 빈 세션 변수를 사전 정의합니다.
+# 입력 폼의 상태를 제어하기 위한 세션 변수 사전 정의
 if 'input_customer_id' not in st.session_state:
     st.session_state['input_customer_id'] = ""
 if 'input_api_key' not in st.session_state:
@@ -122,7 +122,7 @@ if 'registration_error' not in st.session_state:
 
 
 # ==========================================
-# 💡 [정밀 수정 완료] 오타 변수('secret_key' -> 'sec_k') 수정 패치 적용
+# [콜백] 신규 광고 ID 등록 버튼 핸들러 (오타 수정 완료)
 # ==========================================
 def register_account_callback():
     cust_id = st.session_state.get('input_customer_id', '')
@@ -135,7 +135,7 @@ def register_account_callback():
         st.session_state['ad_accounts'][r_name] = {
             "customer_id": cust_id,
             "api_key": api_k,
-            "secret_key": sec_k  # 💡 secret_key 가 아닌 sec_k 로 정확히 교체했습니다.
+            "secret_key": sec_k  # 💡 변수명 오타를 정정 완료했습니다.
         }
         save_accounts(st.session_state['ad_accounts'])
         
@@ -149,6 +149,26 @@ def register_account_callback():
         st.session_state['registration_success'] = r_name
     else:
         st.session_state['registration_error'] = True
+
+
+# ==========================================
+# 💡 [인증 - 복구 완료] 네이버 검색광고 API 공통 서명 및 헤더 구성 모듈
+# ==========================================
+def make_signature(timestamp, method, uri, secret_key):
+    message = f"{timestamp}.{method}.{uri}"
+    hash_obj = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256)
+    return base64.b64encode(hash_obj.digest()).decode("utf-8")
+
+def get_header(method, uri, api_key, secret_key, customer_id):
+    timestamp = str(int(time.time() * 1000))
+    signature = make_signature(timestamp, method, uri, secret_key)
+    return {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Timestamp': timestamp,
+        'X-API-KEY': api_key,
+        'X-Customer': str(customer_id),
+        'X-Signature': signature
+    }
 
 
 # ==========================================
@@ -184,9 +204,7 @@ def convert_df_to_html_grid(df, is_summary_table=False):
     return html
 
 
-# ==========================================
 # [그리드 엔진] 엑셀 '주변 서식에 맞추기' 연동 텍스트 추출 가공 모듈
-# ==========================================
 def dataframe_to_tsv_string(df):
     lines = []
     for _, row in df.iterrows():
@@ -279,7 +297,7 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 각 표마다 동적 높이를 계산하여 아이프레임 스크롤바가 없는 깔끔한 레이아웃을 제공합니다.
+# 표 규격에 따른 실시간 높이 보정
 def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
     if is_summary:
@@ -295,6 +313,88 @@ def render_table_with_copy_btn(df, title, is_summary_table=False):
     html_content = render_table_and_button_html(df, title, is_summary_table)
     iframe_height = get_table_iframe_height(df, is_summary_table)
     st.components.v1.html(html_content, height=iframe_height, scrolling=False)
+
+
+# ==========================================
+# [가상 데이터 공급] 임시 시뮬레이션용 모의 데이터셋 생성기
+# ==========================================
+def get_mock_campaigns(ad_type):
+    if ad_type == '파워링크광고':
+        return [{"nccCampaignId": "camp-sh-01", "name": "[검색] 브랜드_공식_캠페인"},
+                {"nccCampaignId": "camp-sh-02", "name": "[검색] 파워링크_제품홍보"}]
+    elif ad_type == '플레이스광고':
+        return [{"nccCampaignId": "camp-pl-01", "name": "[플레이스] 지점_스마트플레이스_노출"}]
+    else:
+        return [{"nccCampaignId": "camp-pc-01", "name": "[파워컨텐츠] 블로그_콘텐츠_캠페인"}]
+
+def get_mock_adgroups(campaign_id):
+    if campaign_id == "camp-sh-01":
+        return [{"nccAdgroupId": "grp-sh-01-a", "name": "PC_대표브랜드_광고그룹"},
+                {"nccAdgroupId": "grp-sh-01-b", "name": "모바일_대표브랜드_광고그룹"}]
+    elif campaign_id == "camp-sh-02":
+        return [{"nccAdgroupId": "grp-sh-02-a", "name": "인기상품_키워드_그룹"}]
+    elif campaign_id == "camp-pl-01":
+        return [{"nccAdgroupId": "grp-pl-01-a", "name": "지역상권_플레이스_그룹"}]
+    else:
+        return [{"nccAdgroupId": "grp-pc-01-a", "name": "리뷰_블로그_광고그룹"}]
+
+def get_mock_daily_stats(adgroup_id, start_date, end_date):
+    date_list = []
+    curr = start_date
+    while curr <= end_date:
+        date_list.append(curr)
+        curr += datetime.timedelta(days=1)
+    
+    import random
+    random.seed(hash(adgroup_id) + int(start_date.strftime("%Y%m%d")))
+    
+    rows = []
+    for d in date_list:
+        imp = random.randint(4000, 15000)
+        clk = random.randint(80, 350)
+        cost = clk * random.randint(500, 900)
+        ctr = round((clk / imp) * 100, 2) if imp > 0 else 0.0
+        cpc = int(cost / clk) if clk > 0 else 0
+        
+        rows.append({
+            "날짜": d.strftime("%Y-%m-%d"),
+            "노출수": imp,
+            "클릭수": clk,
+            "클릭률(%)": ctr,
+            "평균 CPC": cpc,
+            "총비용": cost
+        })
+    return pd.DataFrame(rows)
+
+def get_mock_keyword_stats(adgroup_id, ad_type, start_date, end_date):
+    import random
+    random.seed(hash(adgroup_id))
+    
+    if ad_type == '플레이스광고':
+        keywords = ["강남역 맛집", "강남역 점심 추천", "역삼 근처 조용한 일식집", "강남 주차가능 맛집", "강남 스마트플레이스 예약", 
+                    "강남 핫플레이스 추천", "모임하기 좋은 일식당", "강남 가성비 횟집", "강남역 데이트 코스"]
+    else:
+        keywords = ["마케팅 대행사", "데이터 분석", "광고 가이드", "보고서 엑셀", "스마트스토어 홍보", 
+                    "주간 성과표", "블로그마케팅", "지역 소상공인 광고", "인하우스 마케터"]
+    
+    selected_kws = random.sample(keywords, min(len(keywords), 10))
+    
+    selected_days = (end_date - start_date).days + 1
+    scale_factor = selected_days / 28.0
+    
+    rows = []
+    for kw in selected_kws:
+        base_imp = random.randint(4000, 15000)
+        base_clk = random.randint(80, 350)
+        
+        rows.append({
+            "키워드명": kw,
+            "노출수": int(base_imp * scale_factor),
+            "클릭수": int(base_clk * scale_factor)
+        })
+    df = pd.DataFrame(rows)
+    df = df.sort_values(by="클릭수", ascending=False).head(10).reset_index(drop=True)
+    return df
 
 
 # ==========================================
@@ -696,7 +796,7 @@ if show_daily_detail:
             # (4) 일자별 총비용 표 구성 (날짜 열 제거)
             cost_df = raw_df[["총비용"]].copy()
             
-            # 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 렌더링 및 텍스트 전용 복사 단축 버튼을 매핑합니다.
+            # 💡 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 렌더링 및 텍스트 전용 복사 단축 버튼을 매핑합니다.
             render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True)
             
             st.markdown("###") # 레이아웃 공백 보정
