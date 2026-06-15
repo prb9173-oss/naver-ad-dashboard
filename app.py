@@ -8,23 +8,41 @@ import requests
 import pandas as pd
 
 # ==========================================
-# [설정] 웹 페이지 타이틀 및 연노랑 테마 디자인 (CSS)
+# [디자인 정의] 스트림릿 CSS 변수를 완전한 검은색(#000000)으로 강제 변환
 # ==========================================
 st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #FFFFFF;
+    /* 1. 스트림릿이 내부적으로 사용하는 텍스트 및 라벨 관련 CSS 글로벌 변수를 완전히 검은색(#000000)으로 고정합니다. */
+    :root {
+        --text-color: #000000 !important;
+        --secondary-text-color: #000000 !important;
+        --primary-color: #000000 !important;
     }
-    section[data-testid="stSidebar"] {
-        background-color: #FAFAFA;
-        border-right: 1px solid #E0E0E0;
+    
+    /* 2. 일반 텍스트, 타이틀, 서브타이틀, 마크다운 영역 등 모든 활자 요소를 완벽한 블랙으로 지정합니다. */
+    html, body, [data-testid="stWidgetLabel"] p, .stMarkdown, p, span, div, h1, h2, h3, h4, h5, h6, label {
+        color: #000000 !important;
+        font-weight: 500;
     }
+    
+    /* 3. 사이드바 및 인풋 컨트롤러 내부의 라벨 텍스트 가시성을 극대화하기 위해 글자 두께를 더 두껍게(Bold) 처리합니다. */
+    .stTextInput label p, .stSelectbox label p, .stDateInput label p, [data-testid="stSidebar"] label p {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
+    
+    /* 4. 데이터프레임(표) 내부 셀 및 헤더 영역의 글자도 검은색으로 고정합니다. */
+    .stDataFrame td, .stDataFrame th {
+        color: #000000 !important;
+    }
+    
+    /* 5. 은은한 연노랑(#FFFDE7) 컬러 포인트를 부여한 실행 버튼 스타일링입니다. */
     div.stButton > button {
         background-color: #FFFDE7 !important;
-        color: #333333 !important;
-        border: 1px solid #E0E0E0 !important;
+        color: #000000 !important;
+        border: 1px solid #C0B090 !important;
         border-radius: 6px !important;
         padding: 0.6rem 1.5rem !important;
         font-weight: bold !important;
@@ -32,32 +50,27 @@ st.markdown("""
     }
     div.stButton > button:hover {
         background-color: #FFF9C4 !important;
-        border: 1px solid #BDBDBD !important;
-    }
-    .stTextInput>div>div>input {
-        border-color: #E0E0E0 !important;
+        border: 1px solid #999999 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# [날짜] 오늘 기준 지난주 월요일 ~ 지난주 일요일 계산
-# ==========================================
-today = datetime.date.today()
-current_weekday = today.weekday()  # 월요일=0, ... 일요일=6
-last_monday = today - datetime.timedelta(days=current_weekday + 7)
-last_sunday = last_monday + datetime.timedelta(days=6)
 
 # ==========================================
-# [인증] 네이버 검색광고 API 전용 HMAC 서명 도구
+# [날짜 계산] 오늘 기준 지난주 월요일 ~ 지난주 일요일 자동 계산
+# ==========================================
+today = datetime.date.today()
+current_weekday = today.weekday()  # 오늘 요일 (월요일=0, ... 일요일=6)
+last_monday = today - datetime.timedelta(days=current_weekday + 7)  # 지난주 월요일
+last_sunday = last_monday + datetime.timedelta(days=6)  # 지난주 일요일
+
+
+# ==========================================
+# [인증] 네이버 검색광고 API 전용 HMAC 서명 생성 모듈
 # ==========================================
 def make_signature(timestamp, method, uri, secret_key):
     message = f"{timestamp}.{method}.{uri}"
-    hash_obj = hmac.new(
-        secret_key.encode("utf-8"), 
-        message.encode("utf-8"), 
-        hashlib.sha256
-    )
+    hash_obj = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256)
     return base64.b64encode(hash_obj.digest()).decode("utf-8")
 
 def get_header(method, uri, api_key, secret_key, customer_id):
@@ -71,163 +84,248 @@ def get_header(method, uri, api_key, secret_key, customer_id):
         'X-Signature': signature
     }
 
+
 # ==========================================
-# [백업] API 입력 값이 없거나 연결 실패 시 보여줄 샘플 데이터
+# [가상 테스트 데이터] API 입력 없이 흐름 파악을 위한 데이터 백업본
 # ==========================================
-def get_mock_data(ad_type):
+def get_mock_campaigns(ad_type):
     if ad_type == '검색광고':
-        data = [
-            {"캠페인명(또는 키워드)": "[검색] 브랜드_공식_키워드", "노출수": 150230, "클릭수": 4520, "클릭률(%)": 3.01, "CPC": 520, "총비용": 2350400},
-            {"캠페인명(또는 키워드)": "[검색] 핵심제품_키워드_노출", "노출수": 84500, "클릭수": 1280, "클릭률(%)": 1.51, "CPC": 840, "총비용": 1075200},
-        ]
+        return [{"nccCampaignId": "camp-sh-01", "name": "[검색] 브랜드_공식_캠페인"},
+                {"nccCampaignId": "camp-sh-02", "name": "[검색] 핵심제품_검색광고"}]
     elif ad_type == '플레이스광고':
-        data = [
-            {"캠페인명(또는 키워드)": "[플레이스] 본점_주변상권_검색", "노출수": 52300, "클릭수": 1040, "클릭률(%)": 1.99, "CPC": 450, "총비용": 468000},
-        ]
+        return [{"nccCampaignId": "camp-pl-01", "name": "[플레이스] 강남직영점_홍보캠페인"}]
     else:
-        data = [
-            {"캠페인명(또는 키워드)": "[파워컨텐츠] 블로그_정보성_리뷰배포", "노출수": 24100, "클릭수": 510, "클릭률(%)": 2.12, "CPC": 650, "총비용": 331500},
-        ]
-    return pd.DataFrame(data)
+        return [{"nccCampaignId": "camp-pc-01", "name": "[파워컨텐츠] 네이버카페_조회캠페인"}]
 
-# ==========================================
-# [API 호출 메인 엔진]
-# ==========================================
-def fetch_naver_ad_data(customer_id, api_key, secret_key, start_date, end_date, ad_type):
-    if not customer_id or not api_key or not secret_key:
-        st.info("💡 API 인증 정보가 입력되지 않아 샘플(예시) 데이터를 표시합니다. 키를 정상 입력하면 실제 데이터가 조회됩니다.")
-        return get_mock_data(ad_type)
+def get_mock_adgroups(campaign_id):
+    if campaign_id == "camp-sh-01":
+        return [{"nccAdgroupId": "grp-sh-01-a", "name": "PC_대표브랜드_광고그룹"},
+                {"nccAdgroupId": "grp-sh-01-b", "name": "모바일_대표브랜드_광고그룹"}]
+    elif campaign_id == "camp-sh-02":
+        return [{"nccAdgroupId": "grp-sh-02-a", "name": "인기상품_카테고리_광고그룹"}]
+    elif campaign_id == "camp-pl-01":
+        return [{"nccAdgroupId": "grp-pl-01-a", "name": "지역기반_플레이스_광고그룹"}]
+    else:
+        return [{"nccAdgroupId": "grp-pc-01-a", "name": "리뷰_콘텐츠_매칭_광고그룹"}]
+
+def get_mock_daily_stats(adgroup_id, start_date, end_date):
+    date_list = []
+    curr = start_date
+    while curr <= end_date:
+        date_list.append(curr)
+        curr += datetime.timedelta(days=1)
     
-    try:
-        BASE_URL = "https://api.searchad.naver.com"
+    import random
+    random.seed(hash(adgroup_id) + int(start_date.strftime("%Y%m%d")))
+    
+    rows = []
+    for d in date_list:
+        imp = random.randint(4000, 15000)
+        clk = random.randint(80, 350)
+        cost = clk * random.randint(500, 900)
+        ctr = round((clk / imp) * 100, 2) if imp > 0 else 0.0
+        cpc = int(cost / clk) if clk > 0 else 0
         
-        # Step 1: 전체 캠페인 목록 받아오기
-        campaign_uri = "/ncc/campaigns"
-        headers = get_header("GET", campaign_uri, api_key, secret_key, customer_id)
-        
-        response = requests.get(f"{BASE_URL}{campaign_uri}", headers=headers)
-        
-        if response.status_code != 200:
-            st.error(f"❌ 캠페인 조회 실패 (HTTP {response.status_code})")
-            st.code(response.text)
-            return get_mock_data(ad_type)
-            
-        campaigns = response.json()
-        
-        type_mapping = {
-            '검색광고': 'WEB_SITE',
-            '플레이스광고': 'PLACE',
-            '파워컨텐츠광고': 'POWER_CONTENT'
-        }
-        target_type = type_mapping.get(ad_type, 'WEB_SITE')
-        filtered_campaigns = [c for c in campaigns if c.get('campaignTp') == target_type]
-        
-        if not filtered_campaigns:
-            st.warning(f"⚠️ '{ad_type}' 유형의 활성화된 캠페인이 존재하지 않습니다.")
-            return pd.DataFrame(columns=["캠페인명(또는 키워드)", "노출수", "클릭수", "클릭률(%)", "CPC", "총비용"])
+        rows.append({
+            "날짜": d.strftime("%Y-%m-%d"),
+            "노출수": imp,
+            "클릭수": clk,
+            "클릭률(%)": ctr,
+            "평균 CPC": cpc,
+            "총비용": cost
+        })
+    return pd.DataFrame(rows)
 
-        campaign_ids = [c.get('nccCampaignId') for c in filtered_campaigns]
-        camp_id_to_name = {c.get('nccCampaignId'): c.get('name') for c in filtered_campaigns}
-        
-        # Step 2: 다중 캠페인 ID를 한 번에 통계 API(/stats)로 Bulk 요청
-        stats_uri = "/stats"
-        stats_headers = get_header("GET", stats_uri, api_key, secret_key, customer_id)
-        
-        params = {
-            'ids': campaign_ids,
-            'fields': '["impCnt","clkCnt","ctr","cpc","salesAmt"]',
-            'timeRange': f'{{"since":"{start_date}","until":"{end_date}"}}'
-        }
-        
-        stats_response = requests.get(f"{BASE_URL}{stats_uri}", params=params, headers=stats_headers)
-        
-        if stats_response.status_code != 200:
-            st.error(f"❌ 통계 데이터 조회 실패 (HTTP {stats_response.status_code})")
-            st.code(stats_response.text)
-            return get_mock_data(ad_type)
-            
-        stats_json = stats_response.json()
-        data_rows = []
-        
-        if 'data' in stats_json:
-            for stat in stats_json['data']:
-                stat_id = stat.get('id')
-                camp_name = camp_id_to_name.get(stat_id, "알 수 없는 캠페인")
-                
-                imp = int(stat.get('impCnt', 0))
-                clk = int(stat.get('clkCnt', 0))
-                ctr = float(stat.get('ctr', 0.0))
-                cpc = int(stat.get('cpc', 0))
-                cost = int(stat.get('salesAmt', 0))
-                
-                data_rows.append({
-                    "캠페인명(또는 키워드)": camp_name,
-                    "노출수": imp,
-                    "클릭수": clk,
-                    "클릭률(%)": ctr,
-                    "CPC": cpc,
-                    "총비용": cost
-                })
-                
-        if not data_rows:
-            st.warning("선택하신 기간 동안 성과 데이터가 집계되지 않았습니다.")
-            return pd.DataFrame(columns=["캠페인명(또는 키워드)", "노출수", "클릭수", "클릭률(%)", "CPC", "총비용"])
-            
-        df = pd.DataFrame(data_rows)
-        cols = ["캠페인명(또는 키워드)", "노출수", "클릭수", "클릭률(%)", "CPC", "총비용"]
-        return df[cols]
-        
-    except Exception as e:
-        st.error(f"⚠️ 시스템 오류가 발생하여 샘플 데이터로 복구되었습니다: {str(e)}")
-        return get_mock_data(ad_type)
 
 # ==========================================
-# [화면 구성]
+# [네이버 API 통신 모듈]
+# ==========================================
+def fetch_campaigns(customer_id, api_key, secret_key, ad_type):
+    BASE_URL = "https://api.searchad.naver.com"
+    uri = "/ncc/campaigns"
+    headers = get_header("GET", uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{uri}", headers=headers)
+    if response.status_code != 200:
+        st.error(f"캠페인 데이터 연동에 실패했습니다. (HTTP {response.status_code})")
+        return []
+    
+    campaigns = response.json()
+    type_mapping = {'검색광고': 'WEB_SITE', '플레이스광고': 'PLACE', '파워컨텐츠광고': 'POWER_CONTENT'}
+    target_type = type_mapping.get(ad_type, 'WEB_SITE')
+    return [c for c in campaigns if c.get('campaignTp') == target_type]
+
+def fetch_adgroups(customer_id, api_key, secret_key, campaign_id):
+    BASE_URL = "https://api.searchad.naver.com"
+    uri = "/ncc/adgroups"
+    params = {'nccCampaignId': campaign_id}
+    headers = get_header("GET", uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
+    if response.status_code != 200:
+        st.error(f"광고그룹 데이터 연동에 실패했습니다. (HTTP {response.status_code})")
+        return []
+    return response.json()
+
+def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date):
+    BASE_URL = "https://api.searchad.naver.com"
+    uri = "/stats"
+    # 상세 데이터 조회를 위해 단일 광고그룹 ID('id')와 일자별 분리 파라미터('timeIncrement': '1')를 제공합니다.
+    params = {
+        'id': adgroup_id,
+        'fields': '["impCnt","clkCnt","ctr","cpc","salesAmt"]',
+        'timeRange': f'{{"since":"{start_date}","until":"{end_date}"}}',
+        'timeIncrement': '1'
+    }
+    headers = get_header("GET", uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
+    if response.status_code != 200:
+        st.error(f"일자별 상세 데이터 연동 실패 (HTTP {response.status_code})")
+        return None
+        
+    stats_json = response.json()
+    data_rows = []
+    
+    if 'data' in stats_json:
+        for stat in stats_json['data']:
+            dt = stat.get('date', '')
+            imp = int(stat.get('impCnt', 0))
+            clk = int(stat.get('clkCnt', 0))
+            ctr = float(stat.get('ctr', 0.0))
+            cpc = int(stat.get('cpc', 0))
+            cost = int(stat.get('salesAmt', 0))
+            
+            data_rows.append({
+                "날짜": dt,
+                "노출수": imp,
+                "클릭수": clk,
+                "클릭률(%)": ctr,
+                "평균 CPC": cpc,
+                "총비용": cost
+            })
+            
+    if data_rows:
+        return pd.DataFrame(data_rows)
+    return None
+
+
+# ==========================================
+# [사용자 레이아웃 구성]
 # ==========================================
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
-st.caption("네이버 검색광고 API 연동을 통해 매주 정돈된 마케팅 지표를 즉시 복사하여 엑셀 양식에 붙여넣을 수 있습니다.")
+st.caption("사이드바에 API 정보를 먼저 입력하면, 해당 계정에 맞는 광고 캠페인 및 광고그룹 선택창이 단계별로 드러납니다.")
 
-# 사이드바 입력 컴포넌트 구성
+# 사이드바 입력창 세팅
 st.sidebar.markdown("### 🔑 API 계정 인증 정보")
-
-# 스트림릿 클라우드의 'Secrets' 시스템에 키를 등록해 놓았다면 가져오고, 없으면 공백처리합니다.
 secret_customer_id = st.secrets.get("CUSTOMER_ID", "")
 secret_api_key = st.secrets.get("API_KEY", "")
 secret_secret_key = st.secrets.get("SECRET_KEY", "")
 
-# Secrets가 비어 있을 경우 사용자가 직접 화면 사이드바에 타이핑하여 채울 수 있습니다.
 input_customer_id = st.sidebar.text_input("CUSTOMER_ID", value=secret_customer_id, placeholder="예: 1234567")
-input_api_key = st.sidebar.text_input("액세스 라이선스 (API KEY)", value=secret_api_key, type="password", placeholder="발급받은 Access Key")
-input_secret_key = st.sidebar.text_input("비밀키 (SECRET_KEY)", value=secret_secret_key, type="password", placeholder="발급받은 Secret Key")
+input_api_key = st.sidebar.text_input("액세스 라이선스 (API KEY)", value=secret_api_key, type="password", placeholder="Access Key")
+input_secret_key = st.sidebar.text_input("비밀키 (SECRET_KEY)", value=secret_secret_key, type="password", placeholder="Secret Key")
 
-# 메인 날짜 범위 선택
+# 필수 인증 정보 검사
+has_keys = (input_customer_id != "") and (input_api_key != "") and (input_secret_key != "")
+
+is_test_mode = False
+
+# ⚠️ [동작 제어] 키 정보가 채워져 있지 않다면 메인 화면을 가로막고 입력을 유도합니다.
+if not has_keys:
+    st.info("👈 왼쪽 사이드바에 API 키 정보 3가지를 정확히 채워 넣어 주세요.")
+    
+    # 가상으로 동작 방식을 빠르게 테스트할 수 있는 보조 장치
+    is_test_mode = st.checkbox("⚙️ 테스트 모드로 화면 먼저 써보기 (네이버 API 인증 정보가 없을 시 체크)")
+    if not is_test_mode:
+        st.stop()  # 키가 없고 테스트 모드도 체크하지 않았다면 아래 동작 시퀀스로 나아가지 않고 여기서 정지합니다.
+
 st.markdown("---")
-col1, col2 = st.columns(2)
-with col1:
-    start_date = st.date_input("조회 시작일", value=last_monday)
-with col2:
-    end_date = st.date_input("조회 종료일", value=last_sunday)
+
+# 📅 조회 날짜 입력 영역 (조회 주간 설정)
+col_date1, col_date2 = st.columns(2)
+with col_date1:
+    start_date = st.date_input("조회 시작일 (월요일 권장)", value=last_monday)
+with col_date2:
+    end_date = st.date_input("조회 종료일 (일요일 권장)", value=last_sunday)
 
 formatted_start = start_date.strftime("%Y-%m-%d")
 formatted_end = end_date.strftime("%Y-%m-%d")
 
-# 광고 종류 선택을 위한 상단 탭 구성
-tabs = st.tabs(['검색광고', '플레이스광고', '파워컨텐츠광고'])
+# 🛠️ [조건 제어] API 키 입력 시에만 활성화되는 순차 필터링 영역
+st.markdown("### 🗂️ 광고 구성 단계별 선택")
 
-for idx, tab_name in enumerate(['검색광고', '플레이스광고', '파워컨텐츠광고']):
-    with tabs[idx]:
-        st.write(f"📊 **{tab_name}** 성과 통계 데이터")
-        
-        if st.button(f"{tab_name} 데이터 불러오기", key=f"btn_{idx}"):
-            with st.spinner("네이버 광고 API로부터 최신 통계 지표를 수집 중입니다..."):
-                result_df = fetch_naver_ad_data(
-                    customer_id=input_customer_id,
-                    api_key=input_api_key,
-                    secret_key=input_secret_key,
-                    start_date=formatted_start,
-                    end_date=formatted_end,
-                    ad_type=tab_name
-                )
-                
-                st.dataframe(result_df, use_container_width=True)
-                st.success("✅ 조회 완료! 마우스 드래그 혹은 우측 상단 메뉴를 통해 엑셀에 바로 붙여넣기 하실 수 있습니다.")
+# 1. 광고 유형 선택
+selected_ad_type = st.selectbox("1. 광고그룹 유형을 선택해 주세요.", ['검색광고', '플레이스광고', '파워컨텐츠광고'])
+
+# 2. 캠페인 조회 및 선택
+with st.spinner("해당 유형의 캠페인 목록을 가져오는 중..."):
+    if is_test_mode:
+        campaign_list = get_mock_campaigns(selected_ad_type)
+    else:
+        campaign_list = fetch_campaigns(input_customer_id, input_api_key, input_secret_key, selected_ad_type)
+
+if not campaign_list:
+    st.warning("⚠️ 해당 광고 유형에 활성화된 캠페인이 존재하지 않습니다.")
+    st.stop()
+
+# 셀렉트박스 편의를 위해 매핑 사전 구성
+camp_options = {c['nccCampaignId']: c['name'] for c in campaign_list}
+selected_camp_id = st.selectbox("2. 캠페인을 지정해 주세요.", options=list(camp_options.keys()), format_func=lambda x: camp_options[x])
+
+# 3. 광고그룹 조회 및 선택
+with st.spinner("지정된 캠페인 하위의 광고그룹 목록을 가져오는 중..."):
+    if is_test_mode:
+        adgroup_list = get_mock_adgroups(selected_camp_id)
+    else:
+        adgroup_list = fetch_adgroups(input_customer_id, input_api_key, input_secret_key, selected_camp_id)
+
+if not adgroup_list:
+    st.warning("⚠️ 선택하신 캠페인 하위에 광고그룹이 한 개도 생성되어 있지 않습니다.")
+    st.stop()
+
+# 광고그룹 매핑 사전 구성
+adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
+selected_adg_id = st.selectbox("3. 분석할 상세 광고그룹을 지정해 주세요.", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
+
+st.markdown("###")
+
+# ==========================================
+# [실행] 월요일~일요일 일별 상세 성과 및 주간 종합 데이터 도출
+# ==========================================
+if st.button("📊 상세데이터 가져오기"):
+    with st.spinner("일별 통계 데이터셋을 계산하고 있습니다..."):
+        if is_test_mode:
+            raw_df = get_mock_daily_stats(selected_adg_id, start_date, end_date)
+        else:
+            raw_df = fetch_daily_stats(
+                input_customer_id, input_api_key, input_secret_key, 
+                selected_adg_id, formatted_start, formatted_end
+            )
+            
+        if raw_df is not None and not raw_df.empty:
+            # 월요일 ~ 일요일 성과 총합계(Sum) 행 생성 연산
+            total_imp = raw_df["노출수"].sum()
+            total_clk = raw_df["클릭수"].sum()
+            total_cost = raw_df["총비용"].sum()
+            
+            # 종합 클릭률 및 종합 평균 CPC 산출
+            total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
+            total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
+            
+            # 합계 데이터프레임 구조 생성
+            sum_row = pd.DataFrame([{
+                "날짜": "합계",
+                "노출수": total_imp,
+                "클릭수": total_clk,
+                "클릭률(%)": total_ctr,
+                "평균 CPC": total_cpc,
+                "총비용": total_cost
+            }])
+            
+            # 일주일 지표 바로 밑단에 합계 행 병합 처리
+            final_report_df = pd.concat([raw_df, sum_row], ignore_index=True)
+            
+            # 가독성을 위해 스트림릿 표 컴포넌트로 데이터 반환
+            st.dataframe(final_report_df, use_container_width=True)
+            
+            st.success("✅ 상세 조회가 정상 처리되었습니다! 위 테이블의 행 데이터를 긁어 복사한 뒤 엑셀 시트에 바로 붙여넣으실 수 있습니다.")
+        else:
+            st.error("데이터 통신에 문제가 발생하였거나 지정된 날짜 범위 내에 성과 이력이 확인되지 않습니다.")
