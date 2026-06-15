@@ -86,7 +86,7 @@ def register_account_callback():
 # [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
-    # 엑셀 드래그 복사 시 가운데 정렬 및 쉼표 서식을 안전히 상속하도록 웹 표준 <table> 요소를 빌드합니다.
+    # 엑셀 드래그 복사 시 가운데 정렬 및 쉼표 서식을 안전히 상속하도록 웹 표준 <table> 요소를 빌드합니다 [1].
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #D0C0A0;">'
     
     # 테이블 구분 헤더(Header) 생성
@@ -122,98 +122,11 @@ def convert_df_to_html_grid(df, is_summary_table=False):
 
 
 # ==========================================
-# [디자인 정의] 배경 화이트, 텍스트 블랙 고정 (CSS)
-# ==========================================
-st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
-
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #FFFFFF !important;
-    }
-    section[data-testid="stSidebar"] {
-        background-color: #F8F9FA !important;
-        border-right: 1px solid #E0E0E0 !important;
-    }
-    p, span, label, h1, h2, h3, h4, h5, h6, li, strong, th, td {
-        color: #000000 !important;
-    }
-    .stMarkdown, [data-testid="stWidgetLabel"] p, .stCaptionContainer p {
-        color: #000000 !important;
-        font-weight: 500;
-    }
-    .stTextInput label p, .stSelectbox label p, .stDateInput label p, [data-testid="stSidebar"] label p {
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
-    div[data-baseweb="select"] > div {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-        border: 1px solid #CCCCCC !important;
-    }
-    div[data-baseweb="popover"] {
-        background-color: #FFFFFF !important;
-    }
-    div[role="listbox"] div, li[role="option"] {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-    }
-    li[role="option"]:hover, div[role="option"]:hover {
-        background-color: #FFF9C4 !important;
-        color: #000000 !important;
-    }
-    div.stButton > button {
-        background-color: #FFFDE7 !important;
-        color: #000000 !important;
-        border: 1px solid #C0B090 !important;
-        border-radius: 6px !important;
-        padding: 0.6rem 1.5rem !important;
-        font-weight: bold !important;
-        transition: all 0.3s ease;
-        width: 100%;
-    }
-    div.stButton > button:hover {
-        background-color: #FFF9C4 !important;
-        border: 1px solid #888888 !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-
-# ==========================================
-# [날짜 계산] 오늘 기준 지난주 월요일 ~ 지난주 일요일 자동 계산
-# ==========================================
-today = datetime.date.today()
-current_weekday = today.weekday()
-last_monday = today - datetime.timedelta(days=current_weekday + 7)
-last_sunday = last_monday + datetime.timedelta(days=6)
-
-
-# ==========================================
-# [인증] 네이버 검색광고 API HMAC 서명
-# ==========================================
-def make_signature(timestamp, method, uri, secret_key):
-    message = f"{timestamp}.{method}.{uri}"
-    hash_obj = hmac.new(secret_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256)
-    return base64.b64encode(hash_obj.digest()).decode("utf-8")
-
-def get_header(method, uri, api_key, secret_key, customer_id):
-    timestamp = str(int(time.time() * 1000))
-    signature = make_signature(timestamp, method, uri, secret_key)
-    return {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Timestamp': timestamp,
-        'X-API-KEY': api_key,
-        'X-Customer': str(customer_id),
-        'X-Signature': signature
-    }
-
-
-# ==========================================
 # [가상 데이터 공급] 임시 시뮬레이션용 모의 데이터셋 생성기
 # ==========================================
 def get_mock_campaigns(ad_type):
-    if ad_type == '검색광고':
+    # 💡 [피드백 반영] '검색광고'를 '파워링크광고' 명칭으로 매핑하여 모의 분기합니다.
+    if ad_type == '파워링크광고':
         return [{"nccCampaignId": "camp-sh-01", "name": "[검색] 브랜드_공식_캠페인"},
                 {"nccCampaignId": "camp-sh-02", "name": "[검색] 파워링크_제품홍보"}]
     elif ad_type == '플레이스광고':
@@ -303,8 +216,9 @@ def fetch_campaigns(customer_id, api_key, secret_key, ad_type):
         return []
     campaigns = response.json()
     
+    # 💡 [피드백 반영] '검색광고'를 '파워링크광고' 명칭으로 매핑하여 통신합니다.
     type_mapping = {
-        '검색광고': ['WEB_SITE'],
+        '파워링크광고': ['WEB_SITE'],
         '플레이스광고': ['PLACE'],
         '파워컨텐츠광고': ['CONTENTS', 'POWER_CONTENT', 'POWER_CONTENTS', 'INFORMATION']
     }
@@ -571,9 +485,16 @@ with col_date1:
 with col_date2:
     end_date = st.date_input("조회 종료일 (일요일)", value=last_sunday)
 
+# ==========================================
+# 🗂 광고 구성 단계별 선택 구성
+# ==========================================
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
-selected_ad_type = st.selectbox("1. 광고그룹 유형을 선택해 주세요.", ['검색광고', '플레이스광고', '파워컨텐츠광고'])
+# 💡 [피드백 반영] 광고유형의 배치 순서 및 검색광고 -> 파워링크광고 명칭 변경을 적용했습니다.
+selected_ad_type = st.selectbox(
+    "1. 광고그룹 유형을 선택해 주세요.", 
+    ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
+)
 
 if is_test_mode:
     campaign_list = get_mock_campaigns(selected_ad_type)
@@ -669,7 +590,7 @@ if show_daily_detail:
             total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
             total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
             
-            # 2. 💡 [피드백 반영] 엑셀 템플릿 복사 작업 편의성을 극대화하기 위해 총 4종의 표로 전격 분할합니다.
+            # 2. 엑셀 템플릿 복사 작업 편의성을 극대화하기 위해 총 4종의 표로 전격 분할합니다.
             
             # (1) 최상단 종합 요약 "합계표" 구성
             summary_df = pd.DataFrame([{
@@ -689,7 +610,7 @@ if show_daily_detail:
             # (4) 일자별 총비용 표 구성
             cost_df = raw_df[["날짜", "총비용"]].copy()
             
-            # 3. 마크다운 격자 템플릿을 사용하여 화면에 순서대로 배치합니다.
+            # 3. 마크다운 격자 템플릿을 사용하여 화면에 순서대로 배치합니다 [1].
             st.markdown("##### 🏆 주간 총 합계표")
             st.markdown(convert_df_to_html_grid(summary_df, is_summary_table=True), unsafe_allow_html=True)
             
@@ -705,7 +626,7 @@ if show_daily_detail:
             st.markdown("##### 💰 일별 총비용")
             st.markdown(convert_df_to_html_grid(cost_df), unsafe_allow_html=True)
             
-            st.success("✅ 세부 지표 쪼개기가 완료되었습니다! 필요하신 표의 영역만 마우스로 골라 복사한 뒤, 엑셀 템플릿에 맞추어 열 단위로 붙여넣기 하실 수 있습니다.")
+            st.success("✅ 세부 지표 쪼개기가 완료되었습니다! 필요하신 표의 영역만 마우스로 골라 복사한 뒤, 엑셀 템플릿에 맞추어 열 단위로 붙여넣기 하실 수 있습니다 [1].")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
