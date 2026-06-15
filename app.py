@@ -35,7 +35,7 @@ def save_accounts(accounts):
 if 'ad_accounts' not in st.session_state:
     st.session_state['ad_accounts'] = load_accounts()
 
-# 입력 폼 초기화 및 제어를 위해 상태 관리 키를 사전에 안전히 등록합니다.
+# 입력 폼의 상태를 안정적으로 제어하기 위해 빈 세션 변수를 사전 정의합니다.
 if 'input_customer_id' not in st.session_state:
     st.session_state['input_customer_id'] = ""
 if 'input_api_key' not in st.session_state:
@@ -45,7 +45,7 @@ if 'input_secret_key' not in st.session_state:
 if 'reg_name' not in st.session_state:
     st.session_state['reg_name'] = ""
 
-# 등록 시 알림 출력을 위한 임시 플래그 세션 변수 정의
+# 등록 시 알림 제어용 플래그 세션 변수 정의
 if 'registration_success' not in st.session_state:
     st.session_state['registration_success'] = ""
 if 'registration_error' not in st.session_state:
@@ -53,17 +53,16 @@ if 'registration_error' not in st.session_state:
 
 
 # ==========================================
-# 💡 [핵심 패치] StreamlitAPIException을 완전 차단하는 등록 콜백 함수
+# [콜백] 신규 광고 ID 등록 버튼 핸들러 (Exception 원천 차단)
 # ==========================================
 def register_account_callback():
-    # 현재 세션 상태에 입력된 키값들을 확보합니다.
     cust_id = st.session_state.get('input_customer_id', '')
     api_k = st.session_state.get('input_api_key', '')
     sec_k = st.session_state.get('input_secret_key', '')
     r_name = st.session_state.get('reg_name', '')
     
     if r_name and cust_id and api_k and sec_k:
-        # 데이터 사전에 계정 정보 등록 및 파일 영구 저장
+        # 데이터 사전에 계정 정보 등록 및 로컬 파일 영구 보존
         st.session_state['ad_accounts'][r_name] = {
             "customer_id": cust_id,
             "api_key": api_k,
@@ -71,14 +70,13 @@ def register_account_callback():
         }
         save_accounts(st.session_state['ad_accounts'])
         
-        # 💡 [보완 완료] 콜백 영역은 위젯 생성 전에 작동하므로, 
-        # 여기에서 세션 상태를 빈 문자열로 지워주는 것은 100% 안전하며 예외가 전혀 발생하지 않습니다.
+        # 💡 신규 등록 성공 후 입력 폼을 완전히 비우고, 선택 상태도 초기 기본값으로 회귀 처리합니다.
         st.session_state['input_customer_id'] = ""
         st.session_state['input_api_key'] = ""
         st.session_state['input_secret_key'] = ""
         st.session_state['reg_name'] = ""
+        st.session_state['selected_profile'] = "광고 ID 선택"
         
-        # 성공 메시지를 임시 저장합니다.
         st.session_state['registration_success'] = r_name
     else:
         st.session_state['registration_error'] = True
@@ -449,42 +447,56 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
+# 저장 파일에서 로드한 순수 광고 계정명 목록
 available_accounts = list(st.session_state['ad_accounts'].keys())
 
-# 계정 선택 시 활성 필드를 바인딩하여 자동으로 로드해주는 함수입니다.
+# 💡 [피드백 적극 반영] 셀렉트박스의 가장 상단 옵션에 안내 플레이스홀더를 삽입합니다.
+options_list = ["광고 ID 선택"] + available_accounts
+
+# 계정 선택 콜백 함수
 def update_inputs_from_profile():
     prof = st.session_state.get('selected_profile')
-    if prof and prof in st.session_state['ad_accounts']:
+    
+    # 💡 플레이스홀더가 고정 선택되어 있을 때는 입력 박스들을 즉각 공백("") 처리합니다.
+    if prof == "광고 ID 선택":
+        st.session_state['input_customer_id'] = ""
+        st.session_state['input_api_key'] = ""
+        st.session_state['input_secret_key'] = ""
+    elif prof and prof in st.session_state['ad_accounts']:
         keys = st.session_state['ad_accounts'][prof]
         st.session_state['input_customer_id'] = keys["customer_id"]
         st.session_state['input_api_key'] = keys["api_key"]
         st.session_state['input_secret_key'] = keys["secret_key"]
 
-if available_accounts:
-    if 'selected_profile' not in st.session_state:
-        st.session_state['selected_profile'] = available_accounts[0]
-        update_inputs_from_profile()
-        
-    selected_profile = st.sidebar.selectbox(
-        "관리 중인 계정을 선택하시면 저장된 API 키를 자동으로 불러옵니다.", 
-        options=available_accounts,
-        key='selected_profile',
-        on_change=update_inputs_from_profile
-    )
-    
-    if st.sidebar.button("🗑️ 선택된 광고 ID 삭제"):
+# 💡 세션 상태 내의 기본 선택 프로필을 플레이스홀더값으로 우선 매핑합니다.
+if 'selected_profile' not in st.session_state:
+    st.session_state['selected_profile'] = "광고 ID 선택"
+    update_inputs_from_profile()
+
+selected_profile = st.sidebar.selectbox(
+    "관리 중인 계정을 선택하시면 저장된 API 키를 자동으로 불러옵니다.", 
+    options=options_list,
+    key='selected_profile',
+    on_change=update_inputs_from_profile
+)
+
+# 💡 삭제 버튼 활성 제어 (플레이스홀더인 상태에서는 삭제 기능 제외 차단)
+if st.sidebar.button("🗑️ 선택된 광고 ID 삭제"):
+    if selected_profile != "광고 ID 선택":
         del st.session_state['ad_accounts'][selected_profile]
         save_accounts(st.session_state['ad_accounts'])
+        st.session_state['selected_profile'] = "광고 ID 선택" # 선택 상태를 기본 안내 문구로 초기화
+        update_inputs_from_profile()
         st.sidebar.success(f"'{selected_profile}' 계정이 목록에서 성공적으로 삭제되었습니다.")
         time.sleep(0.5)
         st.rerun()
-else:
-    st.sidebar.warning("⚠️ 등록된 광고 ID가 없습니다. 하단의 3번 항목에서 신규 계정을 우선 등록해 주세요.")
+    else:
+        st.sidebar.error("기본 안내 가이드 문구('광고 ID 선택')는 삭제할 수 없습니다.")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔑 2. API 인증 키 관리")
 
-# 세션 상태 사전의 제어 슬롯에 직접 바인딩합니다.
+# 세션 상태 제어 키 직접 매핑
 st.sidebar.text_input("CUSTOMER_ID", key="input_customer_id")
 st.sidebar.text_input("액세스 라이선스 (API KEY)", type="password", key="input_api_key")
 st.sidebar.text_input("비밀키 (SECRET_KEY)", type="password", key="input_secret_key")
@@ -494,20 +506,19 @@ st.sidebar.markdown("### ➕ 3. 새로운 광고 ID(계정) 등록")
 
 st.sidebar.text_input("신규 계정 별칭", placeholder="예: 인하우스 패션몰 C", key="reg_name")
 
-# 💡 [버그 조치 및 피드백 반영] 콜백 실행 버튼의 매핑
-# 아래의 on_click은 위젯들이 새로 배치되기 직전에 실행되므로 API 예외가 전혀 발생하지 않습니다.
+# 등록 콜백 바인딩
 st.sidebar.button("💾 위 정보로 광고 ID 등록", on_click=register_account_callback)
 
-# 콜백 핸들러 내부에서 계정 추가 성공을 정밀하게 탐지하여 성공 Toast 및 메시지를 메인 루프에서 처리합니다.
+# 등록 사후 상태 메시지 피드백 렌더링
 if st.session_state['registration_success']:
-    st.sidebar.success(f"'{st.session_state['registration_success']}' 계정이 추가되었으며, 다음 입력을 위해 기입창이 초기화되었습니다.")
-    st.session_state['registration_success'] = ""  # 플래그 리셋
+    st.sidebar.success(f"'{st.session_state['registration_success']}' 계정이 추가되었으며, 기입창이 초기화되었습니다.")
+    st.session_state['registration_success'] = ""  # 리셋
     time.sleep(0.5)
     st.rerun()
 
 if st.session_state['registration_error']:
     st.sidebar.error("모든 칸과 별칭을 채운 후 등록을 눌러주세요.")
-    st.session_state['registration_error'] = False  # 플래그 리셋
+    st.session_state['registration_error'] = False  # 리셋
 
 
 # ==========================================
@@ -516,13 +527,15 @@ if st.session_state['registration_error']:
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
 st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 일별 상세데이터 복사 시 단위 텍스트가 생략되어 편리하게 사칙연산 하실 수 있습니다.")
 
-if not available_accounts:
-    st.info("👈 왼쪽 사이드바의 3번 항목에서 새로운 광고 ID(계정)를 먼저 등록해 주셔야 원활한 조회가 시작됩니다.")
+# 💡 [피드백 반영] 사이트 초기 구동 시 '광고 ID 선택' 상태라면 명시적 가이드를 띄우고 정지합니다.
+if selected_profile == "광고 ID 선택" or not selected_profile:
+    st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
     st.stop()
 
-# 가상 시뮬레이션 작동 요건 체크
+# 가상 모드 자동 스위칭 체크
 is_test_mode = ("mock" in st.session_state['input_customer_id'].lower()) or (st.session_state['input_customer_id'] == "")
 
+# 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
 with col_date1:
     start_date = st.date_input("조회 시작일 (월요일)", value=last_monday)
@@ -568,7 +581,7 @@ adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
 selected_adg_id = st.selectbox("3. 상세 광고그룹을 지정해 주세요.", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
 
 
-# '평균 광고 노출 입찰가' 동적 추출 및 보정
+# '평균 광고 노출 입찰가' 동적 파싱 연동
 if selected_ad_type == '플레이스광고':
     avg_bid_val = None
     if not is_test_mode:
@@ -578,17 +591,17 @@ if selected_ad_type == '플레이스광고':
             st.session_state['input_secret_key'], 
             selected_adg_id
         )
+    else:
+        avg_bid_val = 1460
         
-    if avg_bid_val is None:
-        avg_bid_val = 1460  # 가이드용 1,460원 보정 값 연동
-        
+    # 가용 정보 획득 실패 시 아예 미노출 처리
     if avg_bid_val is not None:
         st.info(f"💡 **같은 지역 동종 업종 광고들의 평균 광고 노출 입찰가 참고하기 도움말**\n\n"
                 f"**평균 광고 노출 입찰가 : {avg_bid_val:,}**")
 
 st.markdown("---")
 
-# 플레이스광고일 때는 키워드별 버튼을 완전히 숨겨 격리시킵니다.
+# 광고가 플레이스 유형일 시 키워드 통계를 아예 화면에서 배제
 if selected_ad_type == '플레이스광고':
     show_daily_detail = st.button("📊 일별 상세데이터 가져오기")
     show_keyword_rank = False
