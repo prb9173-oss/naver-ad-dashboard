@@ -8,37 +8,52 @@ import requests
 import pandas as pd
 
 # ==========================================
-# [디자인 정의] 스트림릿 CSS 변수를 완전한 검은색(#000000)으로 강제 변환
+# [디자인 정의] 배경은 밝은 화이트, 글씨만 선명한 블랙으로 강제 세팅 (CSS)
 # ==========================================
 st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
 
 st.markdown("""
     <style>
-    /* 1. 스트림릿이 내부적으로 사용하는 텍스트 및 라벨 관련 CSS 글로벌 변수를 완전히 검은색(#000000)으로 고정합니다. */
-    :root {
-        --text-color: #000000 !important;
-        --secondary-text-color: #000000 !important;
-        --primary-color: #000000 !important;
+    /* 1. 메인 컨텐츠 영역의 배경을 완전히 밝은 흰색(#FFFFFF)으로 강제 고정합니다. */
+    .stApp {
+        background-color: #FFFFFF !important;
     }
     
-    /* 2. 일반 텍스트, 타이틀, 서브타이틀, 마크다운 영역 등 모든 활자 요소를 완벽한 블랙으로 지정합니다. */
-    html, body, [data-testid="stWidgetLabel"] p, .stMarkdown, p, span, div, h1, h2, h3, h4, h5, h6, label {
+    /* 2. 사이드바 영역의 배경을 부드럽고 밝은 연회색(#F8F9FA)으로 지정합니다. */
+    section[data-testid="stSidebar"] {
+        background-color: #F8F9FA !important;
+        border-right: 1px solid #E0E0E0 !important;
+    }
+    
+    /* 3. 레이아웃 컨테이너(div)는 건드리지 않고, 순수 '글씨/텍스트' 요소들만 검은색(#000000)으로 지정합니다. */
+    p, span, label, h1, h2, h3, h4, h5, h6, li, strong, th, td {
+        color: #000000 !important;
+    }
+    
+    /* 4. 스트림릿 마크다운 및 입력창 위젯들의 라벨 색상을 진하고 선명하게 처리합니다. */
+    .stMarkdown, [data-testid="stWidgetLabel"] p, .stCaptionContainer p {
         color: #000000 !important;
         font-weight: 500;
     }
     
-    /* 3. 사이드바 및 인풋 컨트롤러 내부의 라벨 텍스트 가시성을 극대화하기 위해 글자 두께를 더 두껍게(Bold) 처리합니다. */
+    /* 5. 사이드바와 입력 상자 타이틀의 글씨 두께를 강조합니다. */
     .stTextInput label p, .stSelectbox label p, .stDateInput label p, [data-testid="stSidebar"] label p {
         color: #000000 !important;
         font-weight: 700 !important;
     }
     
-    /* 4. 데이터프레임(표) 내부 셀 및 헤더 영역의 글자도 검은색으로 고정합니다. */
-    .stDataFrame td, .stDataFrame th {
+    /* 6. 입력창 내부의 글자색도 흰색 배경에 검은색 글씨로 고정합니다. */
+    input, select, textarea, div[data-baseweb="select"] {
+        color: #000000 !important;
+        background-color: #FFFFFF !important;
+    }
+    
+    /* 7. 데이터프레임(표) 내부 텍스트 색상을 검은색으로 고정합니다. */
+    .stDataFrame div {
         color: #000000 !important;
     }
     
-    /* 5. 은은한 연노랑(#FFFDE7) 컬러 포인트를 부여한 실행 버튼 스타일링입니다. */
+    /* 8. 주요 강조 포인트인 [상세데이터 가져오기] 단추를 은은한 연노랑(#FFFDE7)으로 디자인합니다. */
     div.stButton > button {
         background-color: #FFFDE7 !important;
         color: #000000 !important;
@@ -235,7 +250,7 @@ if not has_keys:
     # 가상으로 동작 방식을 빠르게 테스트할 수 있는 보조 장치
     is_test_mode = st.checkbox("⚙️ 테스트 모드로 화면 먼저 써보기 (네이버 API 인증 정보가 없을 시 체크)")
     if not is_test_mode:
-        st.stop()  # 키가 없고 테스트 모드도 체크하지 않았다면 아래 동작 시퀀스로 나아가지 않고 여기서 정지합니다.
+        st.stop()  # 키가 없고 테스트 모드도 체크하지 않았다면 여기서 정지합니다.
 
 st.markdown("---")
 
