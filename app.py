@@ -6,7 +6,7 @@ import hashlib
 import base64
 import requests
 import pandas as pd
-import json  # 계정 정보를 파일에 저장하기 위해 임포트
+import json  # 계정 정보를 로컬 파일에 영구 기록하기 위해 임포트
 import os  # 로컬 저장 파일 경로를 체크하기 위해 임포트
 
 # ==========================================
@@ -53,7 +53,7 @@ if 'registration_error' not in st.session_state:
 
 
 # ==========================================
-# [콜백] 신규 광고 ID 등록 버튼 핸들러 (Exception 원천 차단)
+# [콜백] 신규 광고 ID 등록 버튼 핸들러
 # ==========================================
 def register_account_callback():
     cust_id = st.session_state.get('input_customer_id', '')
@@ -70,7 +70,7 @@ def register_account_callback():
         }
         save_accounts(st.session_state['ad_accounts'])
         
-        # 💡 신규 등록 성공 후 입력 폼을 완전히 비우고, 선택 상태도 초기 기본값으로 회귀 처리합니다.
+        # 저장 성공 후 입력란 상태 클린 초기화
         st.session_state['input_customer_id'] = ""
         st.session_state['input_api_key'] = ""
         st.session_state['input_secret_key'] = ""
@@ -447,17 +447,11 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
-# 저장 파일에서 로드한 순수 광고 계정명 목록
 available_accounts = list(st.session_state['ad_accounts'].keys())
-
-# 💡 [피드백 적극 반영] 셀렉트박스의 가장 상단 옵션에 안내 플레이스홀더를 삽입합니다.
 options_list = ["광고 ID 선택"] + available_accounts
 
-# 계정 선택 콜백 함수
 def update_inputs_from_profile():
     prof = st.session_state.get('selected_profile')
-    
-    # 💡 플레이스홀더가 고정 선택되어 있을 때는 입력 박스들을 즉각 공백("") 처리합니다.
     if prof == "광고 ID 선택":
         st.session_state['input_customer_id'] = ""
         st.session_state['input_api_key'] = ""
@@ -468,7 +462,6 @@ def update_inputs_from_profile():
         st.session_state['input_api_key'] = keys["api_key"]
         st.session_state['input_secret_key'] = keys["secret_key"]
 
-# 💡 세션 상태 내의 기본 선택 프로필을 플레이스홀더값으로 우선 매핑합니다.
 if 'selected_profile' not in st.session_state:
     st.session_state['selected_profile'] = "광고 ID 선택"
     update_inputs_from_profile()
@@ -480,12 +473,11 @@ selected_profile = st.sidebar.selectbox(
     on_change=update_inputs_from_profile
 )
 
-# 💡 삭제 버튼 활성 제어 (플레이스홀더인 상태에서는 삭제 기능 제외 차단)
 if st.sidebar.button("🗑️ 선택된 광고 ID 삭제"):
     if selected_profile != "광고 ID 선택":
         del st.session_state['ad_accounts'][selected_profile]
         save_accounts(st.session_state['ad_accounts'])
-        st.session_state['selected_profile'] = "광고 ID 선택" # 선택 상태를 기본 안내 문구로 초기화
+        st.session_state['selected_profile'] = "광고 ID 선택"
         update_inputs_from_profile()
         st.sidebar.success(f"'{selected_profile}' 계정이 목록에서 성공적으로 삭제되었습니다.")
         time.sleep(0.5)
@@ -496,7 +488,6 @@ if st.sidebar.button("🗑️ 선택된 광고 ID 삭제"):
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔑 2. API 인증 키 관리")
 
-# 세션 상태 제어 키 직접 매핑
 st.sidebar.text_input("CUSTOMER_ID", key="input_customer_id")
 st.sidebar.text_input("액세스 라이선스 (API KEY)", type="password", key="input_api_key")
 st.sidebar.text_input("비밀키 (SECRET_KEY)", type="password", key="input_secret_key")
@@ -509,16 +500,15 @@ st.sidebar.text_input("신규 계정 별칭", placeholder="예: 인하우스 패
 # 등록 콜백 바인딩
 st.sidebar.button("💾 위 정보로 광고 ID 등록", on_click=register_account_callback)
 
-# 등록 사후 상태 메시지 피드백 렌더링
 if st.session_state['registration_success']:
     st.sidebar.success(f"'{st.session_state['registration_success']}' 계정이 추가되었으며, 기입창이 초기화되었습니다.")
-    st.session_state['registration_success'] = ""  # 리셋
+    st.session_state['registration_success'] = ""
     time.sleep(0.5)
     st.rerun()
 
 if st.session_state['registration_error']:
     st.sidebar.error("모든 칸과 별칭을 채운 후 등록을 눌러주세요.")
-    st.session_state['registration_error'] = False  # 리셋
+    st.session_state['registration_error'] = False
 
 
 # ==========================================
@@ -527,15 +517,14 @@ if st.session_state['registration_error']:
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
 st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 일별 상세데이터 복사 시 단위 텍스트가 생략되어 편리하게 사칙연산 하실 수 있습니다.")
 
-# 💡 [피드백 반영] 사이트 초기 구동 시 '광고 ID 선택' 상태라면 명시적 가이드를 띄우고 정지합니다.
+# 계정 선택 가이드 노출
 if selected_profile == "광고 ID 선택" or not selected_profile:
     st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
     st.stop()
 
-# 가상 모드 자동 스위칭 체크
+# 가상 모드 작동 여부 결정
 is_test_mode = ("mock" in st.session_state['input_customer_id'].lower()) or (st.session_state['input_customer_id'] == "")
 
-# 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
 with col_date1:
     start_date = st.date_input("조회 시작일 (월요일)", value=last_monday)
@@ -581,7 +570,7 @@ adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
 selected_adg_id = st.selectbox("3. 상세 광고그룹을 지정해 주세요.", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
 
 
-# '평균 광고 노출 입찰가' 동적 파싱 연동
+# '평균 광고 노출 입찰가' 가이드 연동
 if selected_ad_type == '플레이스광고':
     avg_bid_val = None
     if not is_test_mode:
@@ -594,14 +583,13 @@ if selected_ad_type == '플레이스광고':
     else:
         avg_bid_val = 1460
         
-    # 가용 정보 획득 실패 시 아예 미노출 처리
     if avg_bid_val is not None:
         st.info(f"💡 **같은 지역 동종 업종 광고들의 평균 광고 노출 입찰가 참고하기 도움말**\n\n"
                 f"**평균 광고 노출 입찰가 : {avg_bid_val:,}**")
 
 st.markdown("---")
 
-# 광고가 플레이스 유형일 시 키워드 통계를 아예 화면에서 배제
+# 플레이스광고일 때는 키워드 탭 완전 차단 격리
 if selected_ad_type == '플레이스광고':
     show_daily_detail = st.button("📊 일별 상세데이터 가져오기")
     show_keyword_rank = False
@@ -651,19 +639,44 @@ if show_daily_detail:
             
             final_report_df = pd.concat([raw_df, sum_row], ignore_index=True)
             
-            st.dataframe(
-                final_report_df, 
-                use_container_width=True,
-                column_config={
-                    "날짜": st.column_config.TextColumn(alignment="center"),
-                    "노출수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                    "클릭수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                    "클릭률(%)": st.column_config.NumberColumn(alignment="center", format="%.2f%%"),
-                    "평균 CPC": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                    "총비용": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                }
+            # 💡 [피드백 반영] 엑셀 복사용 천 단위 쉼표(,) 및 중앙 정렬 완벽 보존 체크박스 추가
+            st.markdown("##### 📋 복사 옵션")
+            keep_format_for_excel = st.checkbox(
+                "엑셀에 붙여넣을 때 천 단위 쉼표(,)와 정렬 포맷을 그대로 보존하기 (체크 시 텍스트 형식으로 변환)", 
+                value=False
             )
-            st.success("✅ 조회 완료! 복사하여 엑셀 수식 계산에 바로 활용하실 수 있습니다.")
+            
+            if keep_format_for_excel:
+                # 데이터를 완전히 문자열(Text) 형식으로 가공하여 복사 시 쉼표와 중앙 정렬이 엑셀에 그대로 보존되도록 강제 연동합니다.
+                excel_df = final_report_df.copy()
+                excel_df["노출수"] = excel_df["노출수"].apply(lambda x: f"{x:,}")
+                excel_df["클릭수"] = excel_df["클릭수"].apply(lambda x: f"{x:,}")
+                excel_df["클릭률(%)"] = excel_df["클릭률(%)"].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else str(x))
+                excel_df["평균 CPC"] = excel_df["평균 CPC"].apply(lambda x: f"{x:,}")
+                excel_df["총비용"] = excel_df["총비용"].apply(lambda x: f"{x:,}")
+                
+                # 모든 텍스트 타입을 강제로 중앙 정렬하도록 구성합니다.
+                st.dataframe(
+                    excel_df,
+                    use_container_width=True,
+                    column_config={col: st.column_config.TextColumn(alignment="center") for col in excel_df.columns}
+                )
+            else:
+                # 미체크 시에는 엑셀에서 사칙연산 수식 계산이 용이하도록 기본 숫자 객체 데이터로 뿌려줍니다.
+                st.dataframe(
+                    final_report_df, 
+                    use_container_width=True,
+                    column_config={
+                        "날짜": st.column_config.TextColumn(alignment="center"),
+                        "노출수": st.column_config.NumberColumn(alignment="center", format="%,d"),
+                        "클릭수": st.column_config.NumberColumn(alignment="center", format="%,d"),
+                        "클릭률(%)": st.column_config.NumberColumn(alignment="center", format="%.2f%%"),
+                        "평균 CPC": st.column_config.NumberColumn(alignment="center", format="%,d"),
+                        "총비용": st.column_config.NumberColumn(alignment="center", format="%,d"),
+                    }
+                )
+                
+            st.success("💡 Tip: 표 우측 상단에 마우스를 대면 나오는 '전체 복사(Copy)' 단축 아이콘을 누르면 팝업 경고 없이 가장 안정적으로 클립보드에 복사됩니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
