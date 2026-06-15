@@ -83,31 +83,29 @@ def register_account_callback():
 
 
 # ==========================================
-# 💡 [신규 탑재] 엑셀 복사용 표준 그리드 테이블 렌더러 함수
+# [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
-def convert_df_to_html_grid(df, highlight_last_row=False):
-    # 브라우저와 엑셀에 완벽히 호환되는 정돈된 화이트-연노랑 테마 테이블 양식을 빌드합니다.
-    html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:15px; color:#000000 !important; border:1px solid #D0C0A0;">'
+def convert_df_to_html_grid(df, is_summary_table=False):
+    # 엑셀 드래그 복사 시 가운데 정렬 및 쉼표 서식을 안전히 상속하도록 웹 표준 <table> 요소를 빌드합니다.
+    html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #D0C0A0;">'
     
-    # 헤더(Header) 생성
-    html += '<thead><tr style="background-color:#FFFDE7; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px;">'
+    # 테이블 구분 헤더(Header) 생성
+    # 상단 총 합계표일 때는 좀 더 강조된 연노랑(#FFF9C4) 음영을 제공합니다.
+    header_color = "#FFF9C4" if is_summary_table else "#FFFDE7"
+    html += f'<thead><tr style="background-color:{header_color}; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px;">'
     for col in df.columns:
         html += f'<th style="padding:10px; border:1px solid #E0E0E0; color:#000000 !important; font-size:14px;">{col}</th>'
     html += '</tr></thead><tbody>'
     
-    # 바디 데이터 행(Rows) 생성 및 천 단위 쉼표, 퍼센트 포맷 동적 가공
+    # 데이터 행(Rows) 렌더링 루프
     for i, row in df.iterrows():
-        is_last_row = (i == len(df) - 1)
+        # 합계표인 경우 전용 백그라운드 색상을 은은하게 덧씌웁니다.
+        row_style = "background-color:#FFFDE7;" if is_summary_table else ""
+        html += f'<tr style="{row_style} border-bottom:1px solid #E5E5E5; height:32px;">'
         
-        # 주간 일별 데이터의 '합계' 요약 행의 경우 음영 및 보더를 두껍게 차별화합니다.
-        if highlight_last_row and is_last_row:
-            html += '<tr style="background-color:#FFF9C4; font-weight:bold; border-top:2px solid #B0B0B0; height:36px;">'
-        else:
-            html += '<tr style="border-bottom:1px solid #E5E5E5; height:32px;">'
-            
         for col in df.columns:
             val = row[col]
-            # 수치형 지표들의 포맷팅 분기 처리
+            # 수치형 값 포맷 세분화
             if isinstance(val, (int, float)):
                 if "클릭률" in col:
                     formatted_val = f"{val:.2f}%"
@@ -646,7 +644,7 @@ st.markdown("###")
 
 
 # ==========================================
-# [액션 1] 일별 상세데이터 그리드(HTML) 출력
+# [액션 1] 일별 상세데이터 그리드 분할(HTML) 출력
 # ==========================================
 if show_daily_detail:
     with st.spinner("일자별 성과 데이터를 분석 중..."):
@@ -663,6 +661,7 @@ if show_daily_detail:
             )
             
         if raw_df is not None and not raw_df.empty:
+            # 1. 일주일 단위의 원본 수치들을 기반으로 주간 총 지표들을 산출합니다.
             total_imp = raw_df["노출수"].sum()
             total_clk = raw_df["클릭수"].sum()
             total_cost = raw_df["총비용"].sum()
@@ -670,22 +669,43 @@ if show_daily_detail:
             total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
             total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
             
-            sum_row = pd.DataFrame([{
-                "날짜": "합계",
-                "노출수": total_imp,
-                "클릭수": total_clk,
-                "클릭률(%)": total_ctr,
+            # 2. 💡 [피드백 반영] 엑셀 템플릿 복사 작업 편의성을 극대화하기 위해 총 4종의 표로 전격 분할합니다.
+            
+            # (1) 최상단 종합 요약 "합계표" 구성
+            summary_df = pd.DataFrame([{
+                "총 노출수": total_imp,
+                "총 클릭수": total_clk,
+                "평균 클릭률(%)": total_ctr,
                 "평균 CPC": total_cpc,
-                "총비용": total_cost
+                "총비용 합계": total_cost
             }])
             
-            final_report_df = pd.concat([raw_df, sum_row], ignore_index=True)
+            # (2) 노출수와 클릭수 정보만 구성하는 성과표
+            imp_clk_df = raw_df[["날짜", "노출수", "클릭수"]].copy()
             
-            # 💡 [피드백 전격 반영] st.dataframe 대신 복사와 단축키 충돌에 최적화된 웹 표준 HTML 그리드로 직접 출력합니다.
-            html_table = convert_df_to_html_grid(final_report_df, highlight_last_row=True)
-            st.markdown(html_table, unsafe_allow_html=True)
+            # (3) 일자별 평균 CPC 표 구성
+            cpc_df = raw_df[["날짜", "평균 CPC"]].copy()
             
-            st.success("✅ 조회가 완료되었습니다! 마우스로 표를 쭉 드래그해 엑셀에 붙여넣으면 '가운데 정렬'과 '천 단위 쉼표(,)'가 수식 왜곡 없이 그대로 영구 보존되어 복사됩니다.")
+            # (4) 일자별 총비용 표 구성
+            cost_df = raw_df[["날짜", "총비용"]].copy()
+            
+            # 3. 마크다운 격자 템플릿을 사용하여 화면에 순서대로 배치합니다.
+            st.markdown("##### 🏆 주간 총 합계표")
+            st.markdown(convert_df_to_html_grid(summary_df, is_summary_table=True), unsafe_allow_html=True)
+            
+            st.markdown("###") # 표 간의 간격을 주기 위한 여백
+            st.markdown("##### 📊 일별 노출수 및 클릭수")
+            st.markdown(convert_df_to_html_grid(imp_clk_df), unsafe_allow_html=True)
+            
+            st.markdown("###")
+            st.markdown("##### 💵 일별 평균 CPC")
+            st.markdown(convert_df_to_html_grid(cpc_df), unsafe_allow_html=True)
+            
+            st.markdown("###")
+            st.markdown("##### 💰 일별 총비용")
+            st.markdown(convert_df_to_html_grid(cost_df), unsafe_allow_html=True)
+            
+            st.success("✅ 세부 지표 쪼개기가 완료되었습니다! 필요하신 표의 영역만 마우스로 골라 복사한 뒤, 엑셀 템플릿에 맞추어 열 단위로 붙여넣기 하실 수 있습니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
@@ -709,10 +729,8 @@ if show_keyword_rank:
             )
             
         if kw_df is not None and not kw_df.empty:
-            # 💡 [피드백 전격 반영] 키워드 목록 역시 드래그 복사가 부드럽게 유지되는 웹 표준 HTML 그리드로 출력합니다.
-            html_table = convert_df_to_html_grid(kw_df, highlight_last_row=False)
+            html_table = convert_df_to_html_grid(kw_df, is_summary_table=False)
             st.markdown(html_table, unsafe_allow_html=True)
-            
             st.success("✅ 키워드 성과 보고서 출력이 완료되었습니다! 엑셀 양식에 맞춰 복사해서 사용해 보세요.")
         else:
             st.warning("⚠️ 해당 광고그룹 내에서 수집 가능한 키워드 실적 지표가 존재하지 않습니다.")
