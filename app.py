@@ -6,7 +6,7 @@ import hashlib
 import base64
 import requests
 import pandas as pd
-import json  # 계정 정보를 로컬 파일에 영구 기록하기 위해 임포트
+import json  # 계정 정보를 파일에 저장하기 위해 임포트
 import os  # 로컬 저장 파일 경로를 체크하기 위해 임포트
 
 # ==========================================
@@ -80,6 +80,47 @@ def register_account_callback():
         st.session_state['registration_success'] = r_name
     else:
         st.session_state['registration_error'] = True
+
+
+# ==========================================
+# 💡 [신규 탑재] 엑셀 복사용 표준 그리드 테이블 렌더러 함수
+# ==========================================
+def convert_df_to_html_grid(df, highlight_last_row=False):
+    # 브라우저와 엑셀에 완벽히 호환되는 정돈된 화이트-연노랑 테마 테이블 양식을 빌드합니다.
+    html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:15px; color:#000000 !important; border:1px solid #D0C0A0;">'
+    
+    # 헤더(Header) 생성
+    html += '<thead><tr style="background-color:#FFFDE7; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px;">'
+    for col in df.columns:
+        html += f'<th style="padding:10px; border:1px solid #E0E0E0; color:#000000 !important; font-size:14px;">{col}</th>'
+    html += '</tr></thead><tbody>'
+    
+    # 바디 데이터 행(Rows) 생성 및 천 단위 쉼표, 퍼센트 포맷 동적 가공
+    for i, row in df.iterrows():
+        is_last_row = (i == len(df) - 1)
+        
+        # 주간 일별 데이터의 '합계' 요약 행의 경우 음영 및 보더를 두껍게 차별화합니다.
+        if highlight_last_row and is_last_row:
+            html += '<tr style="background-color:#FFF9C4; font-weight:bold; border-top:2px solid #B0B0B0; height:36px;">'
+        else:
+            html += '<tr style="border-bottom:1px solid #E5E5E5; height:32px;">'
+            
+        for col in df.columns:
+            val = row[col]
+            # 수치형 지표들의 포맷팅 분기 처리
+            if isinstance(val, (int, float)):
+                if "클릭률" in col:
+                    formatted_val = f"{val:.2f}%"
+                else:
+                    formatted_val = f"{int(val):,}"
+            else:
+                formatted_val = str(val)
+                
+            html += f'<td style="padding:8px; border:1px solid #E0E0E0; color:#000000 !important; font-size:13px;">{formatted_val}</td>'
+        html += '</tr>'
+        
+    html += '</tbody></table>'
+    return html
 
 
 # ==========================================
@@ -515,7 +556,7 @@ if st.session_state['registration_error']:
 # [메인 제어] 플레이스 통계 및 결과 표 도출
 # ==========================================
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
-st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 일별 상세데이터 복사 시 단위 텍스트가 생략되어 편리하게 사칙연산 하실 수 있습니다.")
+st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 브라우저 텍스트 테이블 양식이 직접 화면에 그리드로 그려지므로, 드래그 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
 
 # 계정 선택 가이드 노출
 if selected_profile == "광고 ID 선택" or not selected_profile:
@@ -525,6 +566,7 @@ if selected_profile == "광고 ID 선택" or not selected_profile:
 # 가상 모드 작동 여부 결정
 is_test_mode = ("mock" in st.session_state['input_customer_id'].lower()) or (st.session_state['input_customer_id'] == "")
 
+# 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
 with col_date1:
     start_date = st.date_input("조회 시작일 (월요일)", value=last_monday)
@@ -604,7 +646,7 @@ st.markdown("###")
 
 
 # ==========================================
-# [액션 1] 일별 상세데이터 표 출력
+# [액션 1] 일별 상세데이터 그리드(HTML) 출력
 # ==========================================
 if show_daily_detail:
     with st.spinner("일자별 성과 데이터를 분석 중..."):
@@ -639,50 +681,17 @@ if show_daily_detail:
             
             final_report_df = pd.concat([raw_df, sum_row], ignore_index=True)
             
-            # 💡 [피드백 반영] 엑셀 복사용 천 단위 쉼표(,) 및 중앙 정렬 완벽 보존 체크박스 추가
-            st.markdown("##### 📋 복사 옵션")
-            keep_format_for_excel = st.checkbox(
-                "엑셀에 붙여넣을 때 천 단위 쉼표(,)와 정렬 포맷을 그대로 보존하기 (체크 시 텍스트 형식으로 변환)", 
-                value=False
-            )
+            # 💡 [피드백 전격 반영] st.dataframe 대신 복사와 단축키 충돌에 최적화된 웹 표준 HTML 그리드로 직접 출력합니다.
+            html_table = convert_df_to_html_grid(final_report_df, highlight_last_row=True)
+            st.markdown(html_table, unsafe_allow_html=True)
             
-            if keep_format_for_excel:
-                # 데이터를 완전히 문자열(Text) 형식으로 가공하여 복사 시 쉼표와 중앙 정렬이 엑셀에 그대로 보존되도록 강제 연동합니다.
-                excel_df = final_report_df.copy()
-                excel_df["노출수"] = excel_df["노출수"].apply(lambda x: f"{x:,}")
-                excel_df["클릭수"] = excel_df["클릭수"].apply(lambda x: f"{x:,}")
-                excel_df["클릭률(%)"] = excel_df["클릭률(%)"].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else str(x))
-                excel_df["평균 CPC"] = excel_df["평균 CPC"].apply(lambda x: f"{x:,}")
-                excel_df["총비용"] = excel_df["총비용"].apply(lambda x: f"{x:,}")
-                
-                # 모든 텍스트 타입을 강제로 중앙 정렬하도록 구성합니다.
-                st.dataframe(
-                    excel_df,
-                    use_container_width=True,
-                    column_config={col: st.column_config.TextColumn(alignment="center") for col in excel_df.columns}
-                )
-            else:
-                # 미체크 시에는 엑셀에서 사칙연산 수식 계산이 용이하도록 기본 숫자 객체 데이터로 뿌려줍니다.
-                st.dataframe(
-                    final_report_df, 
-                    use_container_width=True,
-                    column_config={
-                        "날짜": st.column_config.TextColumn(alignment="center"),
-                        "노출수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                        "클릭수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                        "클릭률(%)": st.column_config.NumberColumn(alignment="center", format="%.2f%%"),
-                        "평균 CPC": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                        "총비용": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                    }
-                )
-                
-            st.success("💡 Tip: 표 우측 상단에 마우스를 대면 나오는 '전체 복사(Copy)' 단축 아이콘을 누르면 팝업 경고 없이 가장 안정적으로 클립보드에 복사됩니다.")
+            st.success("✅ 조회가 완료되었습니다! 마우스로 표를 쭉 드래그해 엑셀에 붙여넣으면 '가운데 정렬'과 '천 단위 쉼표(,)'가 수식 왜곡 없이 그대로 영구 보존되어 복사됩니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
 
 # ==========================================
-# [액션 2] 상위 키워드 지표 출력 (검색광고, 파워컨텐츠광고 유형 전용)
+# [액션 2] 상위 키워드 지표 그리드(HTML) 출력
 # ==========================================
 if show_keyword_rank:
     with st.spinner("가장 성과가 뛰어난 상위 10개 키워드 지표를 추적하는 중..."):
@@ -700,15 +709,10 @@ if show_keyword_rank:
             )
             
         if kw_df is not None and not kw_df.empty:
-            st.dataframe(
-                kw_df,
-                use_container_width=True,
-                column_config={
-                    "키워드명": st.column_config.TextColumn(alignment="center"),
-                    "노출수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                    "클릭수": st.column_config.NumberColumn(alignment="center", format="%,d"),
-                }
-            )
-            st.success("✅ 키워드 성과 보고서 출력이 완료되었습니다.")
+            # 💡 [피드백 전격 반영] 키워드 목록 역시 드래그 복사가 부드럽게 유지되는 웹 표준 HTML 그리드로 출력합니다.
+            html_table = convert_df_to_html_grid(kw_df, highlight_last_row=False)
+            st.markdown(html_table, unsafe_allow_html=True)
+            
+            st.success("✅ 키워드 성과 보고서 출력이 완료되었습니다! 엑셀 양식에 맞춰 복사해서 사용해 보세요.")
         else:
             st.warning("⚠️ 해당 광고그룹 내에서 수집 가능한 키워드 실적 지표가 존재하지 않습니다.")
