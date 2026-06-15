@@ -573,6 +573,7 @@ with col_date2:
 
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
+# 광고유형의 선택 순서 (플레이스광고 ➡️ 파워링크광고 ➡️ 파워컨텐츠광고)
 selected_ad_type = st.selectbox(
     "1. 광고그룹 유형을 선택해 주세요.", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
@@ -647,7 +648,7 @@ st.markdown("###")
 
 
 # ==========================================
-# [액션 1] 일별 상세데이터 그리드 분할(HTML) 출력
+# [액션 1] 일별 상세데이터 그리드 분할 가로 나열(HTML) 출력
 # ==========================================
 if show_daily_detail:
     with st.spinner("일자별 성과 데이터를 분석 중..."):
@@ -671,7 +672,7 @@ if show_daily_detail:
             total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
             total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
             
-            # (1) 최상단 종합 요약 "합계표" 구성 (날짜 불필요)
+            # (1) 최상단 종합 요약 "합계표" 구성
             summary_df = pd.DataFrame([{
                 "총 노출수": total_imp,
                 "총 클릭수": total_clk,
@@ -679,8 +680,6 @@ if show_daily_detail:
                 "평균 CPC": total_cpc,
                 "총비용 합계": total_cost
             }])
-            
-            # 💡 [피드백 반영] 일별 데이터 테이블을 쪼갤 때, 엑셀 템플릿과의 연치를 위해 '날짜' 열을 완전히 제거하여 수치만 구성합니다.
             
             # (2) 노출수와 클릭수 정보 성과표 (날짜 열 제거)
             imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
@@ -691,23 +690,28 @@ if show_daily_detail:
             # (4) 일자별 총비용 표 구성 (날짜 열 제거)
             cost_df = raw_df[["총비용"]].copy()
             
-            # 격자 템플릿(HTML)을 활용하여 화면에 순서대로 배치합니다.
+            # 💡 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 명시적으로 출력합니다.
             st.markdown("##### 🏆 주간 총 합계표")
             st.markdown(convert_df_to_html_grid(summary_df, is_summary_table=True), unsafe_allow_html=True)
             
-            st.markdown("###") # 표 간의 간격을 주기 위한 여백
-            st.markdown("##### 📊 일별 노출수 및 클릭수")
-            st.markdown(convert_df_to_html_grid(imp_clk_df), unsafe_allow_html=True)
+            st.markdown("###") # 레이아웃 공백 보정
             
-            st.markdown("###")
-            st.markdown("##### 💵 일별 평균 CPC")
-            st.markdown(convert_df_to_html_grid(cpc_df), unsafe_allow_html=True)
+            # 💡 [피드백 적극 반영] 세 개의 표를 가로로 넓게 나열하기 위해 스트림릿 그리드(Columns)를 가동합니다.
+            col1, col2, col3 = st.columns(3)
             
-            st.markdown("###")
-            st.markdown("##### 💰 일별 총비용")
-            st.markdown(convert_df_to_html_grid(cost_df), unsafe_allow_html=True)
+            with col1:
+                st.markdown("##### 📊 일별 데이터 (노출/클릭)")
+                st.markdown(convert_df_to_html_grid(imp_clk_df), unsafe_allow_html=True)
+                
+            with col2:
+                st.markdown("##### 💵 일별 데이터 (평균 CPC)")
+                st.markdown(convert_df_to_html_grid(cpc_df), unsafe_allow_html=True)
+                
+            with col3:
+                st.markdown("##### 💰 일별 데이터 (총비용)")
+                st.markdown(convert_df_to_html_grid(cost_df), unsafe_allow_html=True)
             
-            st.success("✅ 세부 지표 쪼개기가 완료되었습니다! 필요하신 표의 영역만 마우스로 골라 복사한 뒤, 엑셀 템플릿에 맞추어 열 단위로 붙여넣기 하실 수 있습니다.")
+            st.success("✅ 조회가 완료되었습니다! 마우스로 필요하신 그리드 표의 수치만 골라 긁으시면 옆의 칸과 엉키지 않고 깔끔하게 복사되어 엑셀 템플릿에 바로 안착합니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
