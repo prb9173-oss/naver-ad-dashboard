@@ -68,89 +68,16 @@ st.markdown("""
 
 
 # ==========================================
-# [날짜 및 전역 상수] 오늘 기준 지난주 월~일 계산
+# [날짜 계산] 오늘 기준 지난주 월요일 ~ 지난주 일요일 자동 계산
 # ==========================================
 today = datetime.date.today()
 current_weekday = today.weekday()
 last_monday = today - datetime.timedelta(days=current_weekday + 7)
 last_sunday = last_monday + datetime.timedelta(days=6)
 
-ACCOUNTS_FILE = "accounts.json"
-
 
 # ==========================================
-# [데이터 영구 저장] accounts.json 파일 읽기/쓰기 모듈
-# ==========================================
-def load_accounts():
-    default_accounts = {}
-    if os.path.exists(ACCOUNTS_FILE):
-        try:
-            with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default_accounts
-    return default_accounts
-
-def save_accounts(accounts):
-    try:
-        with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(accounts, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        pass
-
-# 세션 메모리에 영구 저장된 계정 정보를 동기화합니다.
-if 'ad_accounts' not in st.session_state:
-    st.session_state['ad_accounts'] = load_accounts()
-
-# 입력 폼의 상태를 제어하기 위한 세션 변수 사전 정의
-if 'input_customer_id' not in st.session_state:
-    st.session_state['input_customer_id'] = ""
-if 'input_api_key' not in st.session_state:
-    st.session_state['input_api_key'] = ""
-if 'input_secret_key' not in st.session_state:
-    st.session_state['input_secret_key'] = ""
-if 'reg_name' not in st.session_state:
-    st.session_state['reg_name'] = ""
-
-# 등록 시 알림 제어용 플래그 세션 변수 정의
-if 'registration_success' not in st.session_state:
-    st.session_state['registration_success'] = ""
-if 'registration_error' not in st.session_state:
-    st.session_state['registration_error'] = False
-
-
-# ==========================================
-# [콜백] 신규 광고 ID 등록 버튼 핸들러
-# ==========================================
-def register_account_callback():
-    cust_id = st.session_state.get('input_customer_id', '')
-    api_k = st.session_state.get('input_api_key', '')
-    sec_k = st.session_state.get('input_secret_key', '')
-    r_name = st.session_state.get('reg_name', '')
-    
-    if r_name and cust_id and api_k and sec_k:
-        # 데이터 사전에 계정 정보 등록 및 로컬 파일 영구 보존
-        st.session_state['ad_accounts'][r_name] = {
-            "customer_id": cust_id,
-            "api_key": api_k,
-            "secret_key": sec_k
-        }
-        save_accounts(st.session_state['ad_accounts'])
-        
-        # 저장 성공 후 입력란 상태 클린 초기화
-        st.session_state['input_customer_id'] = ""
-        st.session_state['input_api_key'] = ""
-        st.session_state['input_secret_key'] = ""
-        st.session_state['reg_name'] = ""
-        st.session_state['selected_profile'] = "광고 ID 선택"
-        
-        st.session_state['registration_success'] = r_name
-    else:
-        st.session_state['registration_error'] = True
-
-
-# ==========================================
-# [인증] 네이버 검색광고 API 공통 서명 및 헤더 구성 모듈
+# [인증] 네이버 검색광고 API HMAC 서명
 # ==========================================
 def make_signature(timestamp, method, uri, secret_key):
     message = f"{timestamp}.{method}.{uri}"
@@ -203,14 +130,14 @@ def convert_df_to_html_grid(df, is_summary_table=False):
 
 
 # ==========================================
-# 💡 [정밀 수정] 복사용 문자열 생성 시 날짜 무시 조건 추가
+# [그리드 엔진] 엑셀 '주변 서식에 맞추기' 연동 텍스트(TSV) 추출 가공 모듈
 # ==========================================
 def dataframe_to_tsv_string(df):
     lines = []
     for _, row in df.iterrows():
         row_vals = []
         for col in df.columns:
-            # 💡 [피드백 반영] 복사용 평문을 만들 때 '날짜' 열은 철저히 스킵하여 수치 데이터만 기입하게 제어합니다.
+            # 💡 복사용 평문을 만들 때 '날짜' 열은 철저히 스킵하여 수치 데이터만 기입하게 제어합니다.
             if col == "날짜":
                 continue
             val = row[col]
@@ -593,10 +520,11 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# 💡 [사이드바 설계 및 Secrets 연동] 로컬 JSON 저장소 완전 대체
+# 💡 [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
+# st.secrets로부터 유효한 광고 ID 정보 사전을 가진 키들만 안전하게 필터링하여 리스트업합니다.
 available_accounts = []
 try:
     for k in st.secrets.keys():
@@ -609,21 +537,34 @@ except Exception:
 
 options_list = ["광고 ID 선택"] + available_accounts
 
+# 💡 [피드백 반영] 사이드바 셀렉트박스 변경 핸들러 수정 (st.secrets 로부터 동적 파싱)
+def update_inputs_from_profile():
+    prof = st.session_state.get('selected_profile')
+    if prof == "광고 ID 선택":
+        st.session_state['input_customer_id'] = ""
+        st.session_state['input_api_key'] = ""
+        st.session_state['input_secret_key'] = ""
+    elif prof and prof in st.secrets:
+        keys = st.secrets[prof]
+        st.session_state['input_customer_id'] = keys["customer_id"]
+        st.session_state['input_api_key'] = keys["api_key"]
+        st.session_state['input_secret_key'] = keys["secret_key"]
+
+if 'selected_profile' not in st.session_state:
+    st.session_state['selected_profile'] = "광고 ID 선택"
+    update_inputs_from_profile()
+
 selected_profile = st.sidebar.selectbox(
     "조회할 광고 계정을 선택해 주세요. st.secrets에 등록된 계정 목록이 노출됩니다.", 
     options=options_list,
-    key='selected_profile'
+    key='selected_profile',
+    on_change=update_inputs_from_profile
 )
 
-if selected_profile != "광고 ID 선택" and selected_profile in st.secrets:
-    active_keys = st.secrets[selected_profile]
-    input_customer_id = active_keys["customer_id"]
-    input_api_key = active_keys["api_key"]
-    input_secret_key = active_keys["secret_key"]
-else:
-    input_customer_id = ""
-    input_api_key = ""
-    input_secret_key = ""
+# 💡 사이드바 입력 및 등록 UI 영역을 영구 청소했습니다.
+input_customer_id = st.session_state.get('input_customer_id', '')
+input_api_key = st.session_state.get('input_api_key', '')
+input_secret_key = st.session_state.get('input_secret_key', '')
 
 
 # ==========================================
@@ -649,6 +590,7 @@ with col_date2:
 
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
+# 광고유형의 선택 순서 (플레이스광고 ➡️ 파워링크광고 ➡️ 파워컨텐츠광고)
 selected_ad_type = st.selectbox(
     "1. 광고그룹 유형을 선택해 주세요.", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
