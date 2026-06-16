@@ -75,82 +75,9 @@ current_weekday = today.weekday()
 last_monday = today - datetime.timedelta(days=current_weekday + 7)
 last_sunday = last_monday + datetime.timedelta(days=6)
 
-ACCOUNTS_FILE = "accounts.json"
-
 
 # ==========================================
-# [데이터 영구 저장] accounts.json 파일 읽기/쓰기 모듈
-# ==========================================
-def load_accounts():
-    default_accounts = {}
-    if os.path.exists(ACCOUNTS_FILE):
-        try:
-            with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default_accounts
-    return default_accounts
-
-def save_accounts(accounts):
-    try:
-        with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(accounts, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        pass
-
-# 세션 메모리에 영구 저장된 계정 정보를 동기화합니다.
-if 'ad_accounts' not in st.session_state:
-    st.session_state['ad_accounts'] = load_accounts()
-
-# 입력 폼의 상태를 제어하기 위한 세션 변수 사전 정의
-if 'input_customer_id' not in st.session_state:
-    st.session_state['input_customer_id'] = ""
-if 'input_api_key' not in st.session_state:
-    st.session_state['input_api_key'] = ""
-if 'input_secret_key' not in st.session_state:
-    st.session_state['input_secret_key'] = ""
-if 'reg_name' not in st.session_state:
-    st.session_state['reg_name'] = ""
-
-# 등록 시 알림 제어용 플래그 세션 변수 정의
-if 'registration_success' not in st.session_state:
-    st.session_state['registration_success'] = ""
-if 'registration_error' not in st.session_state:
-    st.session_state['registration_error'] = False
-
-
-# ==========================================
-# [콜백] 신규 광고 ID 등록 버튼 핸들러
-# ==========================================
-def register_account_callback():
-    cust_id = st.session_state.get('input_customer_id', '')
-    api_k = st.session_state.get('input_api_key', '')
-    sec_k = st.session_state.get('input_secret_key', '')
-    r_name = st.session_state.get('reg_name', '')
-    
-    if r_name and cust_id and api_k and sec_k:
-        # 데이터 사전에 계정 정보 등록 및 로컬 파일 영구 보존
-        st.session_state['ad_accounts'][r_name] = {
-            "customer_id": cust_id,
-            "api_key": api_k,
-            "secret_key": sec_k
-        }
-        save_accounts(st.session_state['ad_accounts'])
-        
-        # 저장 성공 후 입력란 상태 클린 초기화
-        st.session_state['input_customer_id'] = ""
-        st.session_state['input_api_key'] = ""
-        st.session_state['input_secret_key'] = ""
-        st.session_state['reg_name'] = ""
-        st.session_state['selected_profile'] = "광고 ID 선택"
-        
-        st.session_state['registration_success'] = r_name
-    else:
-        st.session_state['registration_error'] = True
-
-
-# ==========================================
-# [인증] 네이버 검색광고 API 공통 서명 및 헤더 구성 모듈
+# [인증] 네이버 검색광고 API HMAC 서명
 # ==========================================
 def make_signature(timestamp, method, uri, secret_key):
     message = f"{timestamp}.{method}.{uri}"
@@ -210,7 +137,7 @@ def dataframe_to_tsv_string(df):
     for _, row in df.iterrows():
         row_vals = []
         for col in df.columns:
-            # 💡 [피드백 반영] 복사용 평문을 만들 때 '날짜' 열은 철저히 스킵하여 수치 데이터만 기입하게 제어합니다.
+            # 💡 복사용 평문을 만들 때 '날짜' 열은 철저히 스킵하여 수치 데이터만 기입하게 제어합니다.
             if col == "날짜":
                 continue
             val = row[col]
@@ -228,7 +155,9 @@ def dataframe_to_tsv_string(df):
 
 # [컴포넌트] 고대비 일괄 복사 컴포넌트 템플릿 제어 모듈
 def render_table_and_button_html(df, title, is_summary_table=False):
+    # 화면용 테이블에는 날짜 정보가 정상 포함된 채로 렌더링을 진행합니다.
     table_html = convert_df_to_html_grid(df, is_summary_table)
+    # 복사용 소스에서는 텍스트에 포함된 '날짜' 정보가 위의 조건절을 거쳐 완벽히 배제됩니다.
     tsv_text = dataframe_to_tsv_string(df)
     
     unique_id = str(int(time.time() * 1000)) + str(abs(hash(title)))
@@ -310,7 +239,7 @@ def get_table_iframe_height(df, is_summary=False):
         return max(calc_height, 120)
 
 
-# 💡 [정합 보강 완료] 공백 제목("") 전달 시 위 공간을 침범하지 않도록 예외 처리
+# [정합 보강 완료] 공백 제목("") 전달 시 위 공간을 침범하지 않도록 예외 처리
 def render_table_with_copy_btn(df, title, is_summary_table=False):
     if title:
         st.markdown(f"##### {title}")
@@ -592,7 +521,7 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
+# 💡 [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
@@ -632,6 +561,7 @@ selected_profile = st.sidebar.selectbox(
     on_change=update_inputs_from_profile
 )
 
+# 💡 피드백을 반영하여 수동 입력창, 등록/삭제/수정 단추 등을 완벽하게 공백 소거했습니다.
 input_customer_id = st.session_state.get('input_customer_id', '')
 input_api_key = st.session_state.get('input_api_key', '')
 input_secret_key = st.session_state.get('input_secret_key', '')
@@ -660,6 +590,7 @@ with col_date2:
 
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
+# 광고유형의 선택 순서 (플레이스광고 ➡️ 파워링크광고 ➡️ 파워컨텐츠광고)
 selected_ad_type = st.selectbox(
     "1. 광고그룹 유형을 선택해 주세요.", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
@@ -807,7 +738,7 @@ if show_daily_detail:
             with col3:
                 render_table_with_copy_btn(cost_df, "", is_summary_table=False)
             
-            st.success("✅ 조회가 완료되었습니다! 복사 단추를 클릭하면 '날짜'가 제외된 수치 데이터만 엑셀 양식에 주변 서식 맞춤으로 완벽하게 연동됩니다.")
+            st.success("✅ 조회가 완료되었습니다! 표 바로 밑단에 준비된 검정색 테두리의 복사하기 단축버튼을 누르시면, 날짜가 제외된 순수 지표 데이터만 엑셀에 주변 서식 맞춤으로 간편하게 붙여넣어집니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
