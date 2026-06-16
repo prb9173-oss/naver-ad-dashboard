@@ -6,17 +6,13 @@ import hashlib
 import base64
 import requests
 import pandas as pd
-import json  # 계정 정보를 파일에 저장하기 위해 임포트
-import os  # 로컬 저장 파일 경로를 체크하기 위해 임포트
 
 # ==========================================
-# 💡 [다크모드 방어] 스트림릿 기동 즉시 화이트 테마 강제 주입
+# [다크모드 원천 방어] 스트림릿 최초 로드 즉시 화이트 테마 고정
 # ==========================================
-st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
-
 st.markdown("""
     <style>
-    /* 하단 연동부에서 로직 에러가 나더라도 브라우저 배경이 다크 모드로 반전되지 않도록 최상단에서 화이트를 고정합니다. */
+    /* 브라우저가 강제로 다크 모드를 읽어가지 못하도록 캔버스와 컨트롤러를 밝은 화이트톤으로 고정합니다. */
     .stApp {
         background-color: #FFFFFF !important;
     }
@@ -70,89 +66,16 @@ st.markdown("""
 
 
 # ==========================================
-# 💡 [날짜 및 전역 상수] 오늘 기준 지난주 월~일 계산 (NameError 방지)
+# [날짜 연산] 오늘 기준 지난주 월~일 계산
 # ==========================================
 today = datetime.date.today()
 current_weekday = today.weekday()
 last_monday = today - datetime.timedelta(days=current_weekday + 7)
 last_sunday = last_monday + datetime.timedelta(days=6)
 
-ACCOUNTS_FILE = "accounts.json"
-
 
 # ==========================================
-# [데이터 영구 저장] accounts.json 파일 읽기/쓰기 모듈
-# ==========================================
-def load_accounts():
-    default_accounts = {}
-    if os.path.exists(ACCOUNTS_FILE):
-        try:
-            with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default_accounts
-    return default_accounts
-
-def save_accounts(accounts):
-    try:
-        with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(accounts, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        pass
-
-# 세션 메모리에 영구 저장된 계정 정보를 동기화합니다.
-if 'ad_accounts' not in st.session_state:
-    st.session_state['ad_accounts'] = load_accounts()
-
-# 입력 폼의 상태를 제어하기 위한 세션 변수 사전 정의
-if 'input_customer_id' not in st.session_state:
-    st.session_state['input_customer_id'] = ""
-if 'input_api_key' not in st.session_state:
-    st.session_state['input_api_key'] = ""
-if 'input_secret_key' not in st.session_state:
-    st.session_state['input_secret_key'] = ""
-if 'reg_name' not in st.session_state:
-    st.session_state['reg_name'] = ""
-
-# 등록 시 알림 제어용 플래그 세션 변수 정의
-if 'registration_success' not in st.session_state:
-    st.session_state['registration_success'] = ""
-if 'registration_error' not in st.session_state:
-    st.session_state['registration_error'] = False
-
-
-# ==========================================
-# [콜백] 신규 광고 ID 등록 버튼 핸들러 (오타 수정 완료)
-# ==========================================
-def register_account_callback():
-    cust_id = st.session_state.get('input_customer_id', '')
-    api_k = st.session_state.get('input_api_key', '')
-    sec_k = st.session_state.get('input_secret_key', '')
-    r_name = st.session_state.get('reg_name', '')
-    
-    if r_name and cust_id and api_k and sec_k:
-        # 데이터 사전에 계정 정보 등록 및 로컬 파일 영구 보존
-        st.session_state['ad_accounts'][r_name] = {
-            "customer_id": cust_id,
-            "api_key": api_k,
-            "secret_key": sec_k  # 💡 변수명 오타를 정정 완료했습니다.
-        }
-        save_accounts(st.session_state['ad_accounts'])
-        
-        # 저장 성공 후 입력란 상태 클린 초기화
-        st.session_state['input_customer_id'] = ""
-        st.session_state['input_api_key'] = ""
-        st.session_state['input_secret_key'] = ""
-        st.session_state['reg_name'] = ""
-        st.session_state['selected_profile'] = "광고 ID 선택"
-        
-        st.session_state['registration_success'] = r_name
-    else:
-        st.session_state['registration_error'] = True
-
-
-# ==========================================
-# 💡 [인증 - 복구 완료] 네이버 검색광고 API 공통 서명 및 헤더 구성 모듈
+# [인증] 네이버 검색광고 API HMAC 서명 모듈
 # ==========================================
 def make_signature(timestamp, method, uri, secret_key):
     message = f"{timestamp}.{method}.{uri}"
@@ -172,7 +95,7 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 
 
 # ==========================================
-# [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
+# [그리드 엔진] 웹 표준 가독성 테이블 변환기 (Excel Drag 호환)
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #D0C0A0;">'
@@ -204,7 +127,7 @@ def convert_df_to_html_grid(df, is_summary_table=False):
     return html
 
 
-# [그리드 엔진] 엑셀 '주변 서식에 맞추기' 연동 텍스트 추출 가공 모듈
+# [그리드 엔진] 엑셀 '주변 서식에 맞추기' 연동 텍스트(TSV) 추출 가공 모듈
 def dataframe_to_tsv_string(df):
     lines = []
     for _, row in df.iterrows():
@@ -297,7 +220,7 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 표 규격에 따른 실시간 높이 보정
+# 각 표마다 동적 높이를 계산하여 아이프레임 스크롤바가 없는 레이아웃을 제공합니다.
 def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
     if is_summary:
@@ -588,87 +511,56 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# [사이드바 설계 및 동적 바인딩 콜백]
+# 💡 [사이드바 설계 및 Secrets 연동] 로컬 JSON 저장소 완전 대체
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
-available_accounts = list(st.session_state['ad_accounts'].keys())
+# st.secrets 파일의 각 세션 중에서 올바른 광고 API 크리덴셜을 갖고 있는 섹션만 걸러냅니다.
+available_accounts = []
+try:
+    for k in st.secrets.keys():
+        section = st.secrets[k]
+        # 해당 세션이 사전형 객체이면서 3가지 필수 API 정보를 담고 있는지 검증합니다.
+        if hasattr(section, "get") or isinstance(section, dict):
+            if "customer_id" in section and "api_key" in section and "secret_key" in section:
+                available_accounts.append(k)
+except Exception:
+    pass
+
 options_list = ["광고 ID 선택"] + available_accounts
 
-def update_inputs_from_profile():
-    prof = st.session_state.get('selected_profile')
-    if prof == "광고 ID 선택":
-        st.session_state['input_customer_id'] = ""
-        st.session_state['input_api_key'] = ""
-        st.session_state['input_secret_key'] = ""
-    elif prof and prof in st.session_state['ad_accounts']:
-        keys = st.session_state['ad_accounts'][prof]
-        st.session_state['input_customer_id'] = keys["customer_id"]
-        st.session_state['input_api_key'] = keys["api_key"]
-        st.session_state['input_secret_key'] = keys["secret_key"]
-
-if 'selected_profile' not in st.session_state:
-    st.session_state['selected_profile'] = "광고 ID 선택"
-    update_inputs_from_profile()
-
+# 💡 [피드백 반영] 공백과 한글이 섞인 계정명도 셀렉트박스에 온전히 노출됩니다.
 selected_profile = st.sidebar.selectbox(
-    "관리 중인 계정을 선택하시면 저장된 API 키를 자동으로 불러옵니다.", 
+    "조회할 광고 계정을 선택해 주세요. st.secrets에 등록된 계정 목록이 노출됩니다.", 
     options=options_list,
-    key='selected_profile',
-    on_change=update_inputs_from_profile
+    key='selected_profile'
 )
 
-if st.sidebar.button("🗑️ 선택된 광고 ID 삭제"):
-    if selected_profile != "광고 ID 선택":
-        del st.session_state['ad_accounts'][selected_profile]
-        save_accounts(st.session_state['ad_accounts'])
-        st.session_state['selected_profile'] = "광고 ID 선택"
-        update_inputs_from_profile()
-        st.sidebar.success(f"'{selected_profile}' 계정이 목록에서 성공적으로 삭제되었습니다.")
-        time.sleep(0.5)
-        st.rerun()
-    else:
-        st.sidebar.error("기본 안내 가이드 문구('광고 ID 선택')는 삭제할 수 없습니다.")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔑 2. API 인증 키 관리")
-
-st.sidebar.text_input("CUSTOMER_ID", key="input_customer_id")
-st.sidebar.text_input("액세스 라이선스 (API KEY)", type="password", key="input_api_key")
-st.sidebar.text_input("비밀키 (SECRET_KEY)", type="password", key="input_secret_key")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### ➕ 3. 새로운 광고 ID(계정) 등록")
-
-st.sidebar.text_input("신규 계정 별칭", placeholder="예: 인하우스 패션몰 C", key="reg_name")
-
-# 등록 콜백 바인딩
-st.sidebar.button("💾 위 정보로 광고 ID 등록", on_click=register_account_callback)
-
-if st.session_state['registration_success']:
-    st.sidebar.success(f"'{st.session_state['registration_success']}' 계정이 추가되었으며, 기입창이 초기화되었습니다.")
-    st.session_state['registration_success'] = ""
-    time.sleep(0.5)
-    st.rerun()
-
-if st.session_state['registration_error']:
-    st.sidebar.error("모든 칸과 별칭을 채운 후 등록을 눌러주세요.")
-    st.session_state['registration_error'] = False
+# 💡 [피드백 반영] 선택된 프로필 정보에 따라 실시간으로 API 키 변수 바인딩 처리
+if selected_profile != "광고 ID 선택" and selected_profile in st.secrets:
+    active_keys = st.secrets[selected_profile]
+    input_customer_id = active_keys["customer_id"]
+    input_api_key = active_keys["api_key"]
+    input_secret_key = active_keys["secret_key"]
+else:
+    input_customer_id = ""
+    input_api_key = ""
+    input_secret_key = ""
 
 
 # ==========================================
 # [메인 제어] 플레이스 통계 및 결과 표 도출
 # ==========================================
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
-st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 브라우저 텍스트 테이블 양식이 직접 화면에 그리드로 그려지므로, 드래그 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
+st.caption("사이드바에서 선택한 계정 정보는 안전하게 st.secrets로부터 불러옵니다. 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
 
-# 계정 선택 가이드 노출
+# 계정 선택 가이드 노출 및 정지 조건문
 if selected_profile == "광고 ID 선택" or not selected_profile:
-    st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
+    st.info("👈 왼쪽 사이드바에서 조회할 광고 ID(계정)를 먼저 선택해 주세요.")
     st.stop()
 
-# 가상 모드 작동 여부 결정
-is_test_mode = ("mock" in st.session_state['input_customer_id'].lower()) or (st.session_state['input_customer_id'] == "")
+# 가상 모드(시뮬레이터) 작동 여부 결정
+is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
 
 # 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
@@ -689,9 +581,9 @@ if is_test_mode:
     campaign_list = get_mock_campaigns(selected_ad_type)
 else:
     campaign_list = fetch_campaigns(
-        st.session_state['input_customer_id'], 
-        st.session_state['input_api_key'], 
-        st.session_state['input_secret_key'], 
+        input_customer_id, 
+        input_api_key, 
+        input_secret_key, 
         selected_ad_type
     )
 
@@ -706,9 +598,9 @@ if is_test_mode:
     adgroup_list = get_mock_adgroups(selected_camp_id)
 else:
     adgroup_list = fetch_adgroups(
-        st.session_state['input_customer_id'], 
-        st.session_state['input_api_key'], 
-        st.session_state['input_secret_key'], 
+        input_customer_id, 
+        input_api_key, 
+        input_secret_key, 
         selected_camp_id
     )
 
@@ -725,9 +617,9 @@ if selected_ad_type == '플레이스광고':
     avg_bid_val = None
     if not is_test_mode:
         avg_bid_val = fetch_place_avg_bid(
-            st.session_state['input_customer_id'], 
-            st.session_state['input_api_key'], 
-            st.session_state['input_secret_key'], 
+            input_customer_id, 
+            input_api_key, 
+            input_secret_key, 
             selected_adg_id
         )
     else:
@@ -762,9 +654,9 @@ if show_daily_detail:
             raw_df = get_mock_daily_stats(selected_adg_id, start_date, end_date)
         else:
             raw_df = fetch_daily_stats(
-                st.session_state['input_customer_id'], 
-                st.session_state['input_api_key'], 
-                st.session_state['input_secret_key'], 
+                input_customer_id, 
+                input_api_key, 
+                input_secret_key, 
                 selected_adg_id, 
                 start_date, 
                 end_date
@@ -796,7 +688,7 @@ if show_daily_detail:
             # (4) 일자별 총비용 표 구성 (날짜 열 제거)
             cost_df = raw_df[["총비용"]].copy()
             
-            # 💡 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 렌더링 및 텍스트 전용 복사 단축 버튼을 매핑합니다.
+            # 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 렌더링 및 텍스트 전용 복사 단축 버튼을 매핑합니다.
             render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True)
             
             st.markdown("###") # 레이아웃 공백 보정
@@ -828,9 +720,9 @@ if show_keyword_rank:
             kw_df = get_mock_keyword_stats(selected_adg_id, selected_ad_type, start_date, end_date)
         else:
             kw_df = fetch_keyword_stats(
-                st.session_state['input_customer_id'], 
-                st.session_state['input_api_key'], 
-                st.session_state['input_secret_key'], 
+                input_customer_id, 
+                input_api_key, 
+                input_secret_key, 
                 selected_adg_id, 
                 start_date, 
                 end_date, 
