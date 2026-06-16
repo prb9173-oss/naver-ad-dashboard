@@ -10,9 +10,11 @@ import pandas as pd
 # ==========================================
 # [다크모드 원천 방어] 스트림릿 최초 로드 즉시 화이트 테마 고정
 # ==========================================
+st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
+
 st.markdown("""
     <style>
-    /* 브라우저가 강제로 다크 모드를 읽어가지 못하도록 캔버스와 컨트롤러를 밝은 화이트톤으로 고정합니다. */
+    /* 하단 연동부에서 로직 에러가 나더라도 브라우저 배경이 다크 모드로 반전되지 않도록 최상단에서 화이트를 고정합니다. */
     .stApp {
         background-color: #FFFFFF !important;
     }
@@ -66,16 +68,89 @@ st.markdown("""
 
 
 # ==========================================
-# [날짜 연산] 오늘 기준 지난주 월~일 계산
+# [날짜 및 전역 상수] 오늘 기준 지난주 월~일 계산
 # ==========================================
 today = datetime.date.today()
 current_weekday = today.weekday()
 last_monday = today - datetime.timedelta(days=current_weekday + 7)
 last_sunday = last_monday + datetime.timedelta(days=6)
 
+ACCOUNTS_FILE = "accounts.json"
+
 
 # ==========================================
-# [인증] 네이버 검색광고 API HMAC 서명 모듈
+# [데이터 영구 저장] accounts.json 파일 읽기/쓰기 모듈
+# ==========================================
+def load_accounts():
+    default_accounts = {}
+    if os.path.exists(ACCOUNTS_FILE):
+        try:
+            with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default_accounts
+    return default_accounts
+
+def save_accounts(accounts):
+    try:
+        with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(accounts, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        pass
+
+# 세션 메모리에 영구 저장된 계정 정보를 동기화합니다.
+if 'ad_accounts' not in st.session_state:
+    st.session_state['ad_accounts'] = load_accounts()
+
+# 입력 폼의 상태를 제어하기 위한 세션 변수 사전 정의
+if 'input_customer_id' not in st.session_state:
+    st.session_state['input_customer_id'] = ""
+if 'input_api_key' not in st.session_state:
+    st.session_state['input_api_key'] = ""
+if 'input_secret_key' not in st.session_state:
+    st.session_state['input_secret_key'] = ""
+if 'reg_name' not in st.session_state:
+    st.session_state['reg_name'] = ""
+
+# 등록 시 알림 제어용 플래그 세션 변수 정의
+if 'registration_success' not in st.session_state:
+    st.session_state['registration_success'] = ""
+if 'registration_error' not in st.session_state:
+    st.session_state['registration_error'] = False
+
+
+# ==========================================
+# [콜백] 신규 광고 ID 등록 버튼 핸들러
+# ==========================================
+def register_account_callback():
+    cust_id = st.session_state.get('input_customer_id', '')
+    api_k = st.session_state.get('input_api_key', '')
+    sec_k = st.session_state.get('input_secret_key', '')
+    r_name = st.session_state.get('reg_name', '')
+    
+    if r_name and cust_id and api_k and sec_k:
+        # 데이터 사전에 계정 정보 등록 및 로컬 파일 영구 보존
+        st.session_state['ad_accounts'][r_name] = {
+            "customer_id": cust_id,
+            "api_key": api_k,
+            "secret_key": sec_k
+        }
+        save_accounts(st.session_state['ad_accounts'])
+        
+        # 저장 성공 후 입력란 상태 클린 초기화
+        st.session_state['input_customer_id'] = ""
+        st.session_state['input_api_key'] = ""
+        st.session_state['input_secret_key'] = ""
+        st.session_state['reg_name'] = ""
+        st.session_state['selected_profile'] = "광고 ID 선택"
+        
+        st.session_state['registration_success'] = r_name
+    else:
+        st.session_state['registration_error'] = True
+
+
+# ==========================================
+# [인증] 네이버 검색광고 API 공통 서명 및 헤더 구성 모듈
 # ==========================================
 def make_signature(timestamp, method, uri, secret_key):
     message = f"{timestamp}.{method}.{uri}"
@@ -95,7 +170,7 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 
 
 # ==========================================
-# [그리드 엔진] 웹 표준 가독성 테이블 변환기 (Excel Drag 호환)
+# [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #D0C0A0;">'
@@ -127,12 +202,17 @@ def convert_df_to_html_grid(df, is_summary_table=False):
     return html
 
 
-# [그리드 엔진] 엑셀 '주변 서식에 맞추기' 연동 텍스트(TSV) 추출 가공 모듈
+# ==========================================
+# 💡 [정밀 수정] 복사용 문자열 생성 시 날짜 무시 조건 추가
+# ==========================================
 def dataframe_to_tsv_string(df):
     lines = []
     for _, row in df.iterrows():
         row_vals = []
         for col in df.columns:
+            # 💡 [피드백 반영] 복사용 평문을 만들 때 '날짜' 열은 철저히 스킵하여 수치 데이터만 기입하게 제어합니다.
+            if col == "날짜":
+                continue
             val = row[col]
             if isinstance(val, (int, float)):
                 if "클릭률" in col:
@@ -148,7 +228,9 @@ def dataframe_to_tsv_string(df):
 
 # [컴포넌트] 고대비 일괄 복사 컴포넌트 템플릿 제어 모듈
 def render_table_and_button_html(df, title, is_summary_table=False):
+    # 화면용 테이블에는 날짜 정보가 정상 포함된 채로 렌더링을 진행합니다.
     table_html = convert_df_to_html_grid(df, is_summary_table)
+    # 복사용 소스에서는 텍스트에 포함된 '날짜' 정보가 위의 조건절을 거쳐 완벽히 배제됩니다.
     tsv_text = dataframe_to_tsv_string(df)
     
     unique_id = str(int(time.time() * 1000)) + str(abs(hash(title)))
@@ -220,7 +302,7 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 각 표마다 동적 높이를 계산하여 아이프레임 스크롤바가 없는 레이아웃을 제공합니다.
+# 표 규격에 따른 실시간 높이 보정
 def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
     if is_summary:
@@ -515,12 +597,10 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 # ==========================================
 st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
 
-# st.secrets 파일의 각 세션 중에서 올바른 광고 API 크리덴셜을 갖고 있는 섹션만 걸러냅니다.
 available_accounts = []
 try:
     for k in st.secrets.keys():
         section = st.secrets[k]
-        # 해당 세션이 사전형 객체이면서 3가지 필수 API 정보를 담고 있는지 검증합니다.
         if hasattr(section, "get") or isinstance(section, dict):
             if "customer_id" in section and "api_key" in section and "secret_key" in section:
                 available_accounts.append(k)
@@ -529,14 +609,12 @@ except Exception:
 
 options_list = ["광고 ID 선택"] + available_accounts
 
-# 💡 [피드백 반영] 공백과 한글이 섞인 계정명도 셀렉트박스에 온전히 노출됩니다.
 selected_profile = st.sidebar.selectbox(
     "조회할 광고 계정을 선택해 주세요. st.secrets에 등록된 계정 목록이 노출됩니다.", 
     options=options_list,
     key='selected_profile'
 )
 
-# 💡 [피드백 반영] 선택된 프로필 정보에 따라 실시간으로 API 키 변수 바인딩 처리
 if selected_profile != "광고 ID 선택" and selected_profile in st.secrets:
     active_keys = st.secrets[selected_profile]
     input_customer_id = active_keys["customer_id"]
@@ -552,14 +630,14 @@ else:
 # [메인 제어] 플레이스 통계 및 결과 표 도출
 # ==========================================
 st.subheader("인하우스 마케팅 주간 데이터 추출기")
-st.caption("사이드바에서 선택한 계정 정보는 안전하게 st.secrets로부터 불러옵니다. 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
+st.caption("사이드바에서 등록한 계정은 로컬에 영구 보존됩니다. 브라우저 텍스트 테이블 양식이 직접 화면에 그리드로 그려지므로, 드래그 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
 
-# 계정 선택 가이드 노출 및 정지 조건문
+# 계정 선택 가이드 노출
 if selected_profile == "광고 ID 선택" or not selected_profile:
-    st.info("👈 왼쪽 사이드바에서 조회할 광고 ID(계정)를 먼저 선택해 주세요.")
+    st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
     st.stop()
 
-# 가상 모드(시뮬레이터) 작동 여부 결정
+# 가상 모드 작동 여부 결정
 is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
 
 # 조회 범위 입력 상자
@@ -571,7 +649,6 @@ with col_date2:
 
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
-# 광고유형의 선택 순서 (플레이스광고 ➡️ 파워링크광고 ➡️ 파워컨텐츠광고)
 selected_ad_type = st.selectbox(
     "1. 광고그룹 유형을 선택해 주세요.", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
@@ -679,14 +756,16 @@ if show_daily_detail:
                 "총비용 합계": total_cost
             }])
             
-            # (2) 노출수와 클릭수 정보 성과표 (날짜 열 제거)
-            imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
+            # 💡 [피드백 적극 반영] 화면 대조 및 시인성을 보존하기 위해, 분할 성과표의 첫 번째 열로 '날짜'를 다시 포함하여 가공합니다.
             
-            # (3) 일자별 평균 CPC 표 구성 (날짜 열 제거)
-            cpc_df = raw_df[["평균 CPC"]].copy()
+            # (2) 노출수와 클릭수 정보 성과표 (날짜 열 포함)
+            imp_clk_df = raw_df[["날짜", "노출수", "클릭수"]].copy()
             
-            # (4) 일자별 총비용 표 구성 (날짜 열 제거)
-            cost_df = raw_df[["총비용"]].copy()
+            # (3) 일자별 평균 CPC 표 구성 (날짜 열 포함)
+            cpc_df = raw_df[["날짜", "평균 CPC"]].copy()
+            
+            # (4) 일자별 총비용 표 구성 (날짜 열 포함)
+            cost_df = raw_df[["날짜", "총비용"]].copy()
             
             # 최상단 요약 "합계표"는 전체 가로 너비를 넓게 채워 렌더링 및 텍스트 전용 복사 단축 버튼을 매핑합니다.
             render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True)
@@ -706,7 +785,7 @@ if show_daily_detail:
             with col3:
                 render_table_with_copy_btn(cost_df, "💰 일별 데이터")
             
-            st.success("✅ 조회가 완료되었습니다! 표 바로 밑단에 준비된 검정색 테두리의 복사하기 단축버튼을 누르시면, 단 한 번의 조작으로 엑셀 시트에 값과 콤마 형태 그대로 깨끗하게 안착합니다.")
+            st.success("✅ 조회가 완료되었습니다! 표 바로 밑단에 준비된 검정색 테두리의 복사하기 단축버튼을 누르시면, 날짜가 제외된 순수 지표 데이터만 엑셀에 주변 서식 맞춤으로 간편하게 붙여넣어집니다.")
         else:
             st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
 
