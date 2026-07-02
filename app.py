@@ -10,7 +10,8 @@ import pandas as pd
 # ==========================================
 # [다크모드 원천 방어] 스트림릿 최초 로드 즉시 화이트 테마 고정
 # ==========================================
-st.set_page_config(page_title="인하우스 마케팅 주간 데이터 추출기", layout="centered")
+# 💡 [피드백 반영] 앱 타이틀을 '광고 데이터 추출기'로 간결하게 변경했습니다.
+st.set_page_config(page_title="광고 데이터 추출기", layout="centered")
 
 st.markdown("""
     <style>
@@ -229,14 +230,15 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 표 규격에 따른 실시간 높이 보정
+# 💡 [피드백 반영] 표 규격에 따른 실시간 높이 보정 수식 상향 패치 (잘림 현상 완전히 해결)
 def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
     if is_summary:
-        return 170
+        return 220  # 합계표 가상 높이를 220px로 넉넉하게 확장합니다.
     else:
-        calc_height = 36 + (32 * row_count) + 95
-        return max(calc_height, 120)
+        # 행별 높이를 35px로 넓히고 하단 마진 여백을 140px로 늘려 복사 버튼이 무조건 잘림 없이 출력되게 수정했습니다.
+        calc_height = 40 + (35 * row_count) + 140
+        return max(calc_height, 160)
 
 
 # 공백 제목("") 전달 시 위 공간을 침범하지 않도록 예외 처리
@@ -524,9 +526,10 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
+# 💡 [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
 # ==========================================
-st.sidebar.markdown("### 📁 1. 광고 ID(계정) 선택")
+# 💡 [피드백 반영] 사이드바 타이틀 명칭을 '광고 계정 선택'으로 교정합니다.
+st.sidebar.markdown("### 📁 광고 계정 선택")
 
 available_accounts = []
 try:
@@ -552,13 +555,17 @@ def update_inputs_from_profile():
         st.session_state['input_customer_id'] = keys["customer_id"]
         st.session_state['input_api_key'] = keys["api_key"]
         st.session_state['input_secret_key'] = keys["secret_key"]
+    
+    # 💡 [피드백 반영] 계정이 변경되는 시점에 항상 광고그룹 유형 셀렉트박스를 '플레이스광고'로 원위치합니다.
+    st.session_state['selected_ad_type'] = '플레이스광고'
 
 if 'selected_profile' not in st.session_state:
     st.session_state['selected_profile'] = "광고 ID 선택"
     update_inputs_from_profile()
 
+# 💡 [피드백 반영] 불필요한 기재 및 헬퍼 텍스트를 제거하여 정교하게 세팅합니다.
 selected_profile = st.sidebar.selectbox(
-    "조회할 광고 계정을 선택해 주세요. st.secrets에 등록된 계정 목록이 노출됩니다.", 
+    "조회할 광고 계정을 선택해 주세요.", 
     options=options_list,
     key='selected_profile',
     on_change=update_inputs_from_profile
@@ -573,8 +580,8 @@ input_secret_key = st.session_state.get('input_secret_key', '')
 # ==========================================
 # [메인 제어] 플레이스 통계 및 결과 표 도출
 # ==========================================
-st.subheader("인하우스 마케팅 주간 데이터 추출기")
-st.caption("사이드바에서 등록한 계정은 안전한 st.secrets 연동을 통하여 불러옵니다. 브라우저 텍스트 테이블 양식이 직접 화면에 그리드로 그려지므로, 드래그 복사 시 쉼표와 중앙 정렬이 보존됩니다.")
+# 💡 [피드백 반영] 메인 타이틀을 '광고 데이터 추출기'로 갱신하고 불필요한 캡션 텍스트는 완전히 삭제했습니다.
+st.subheader("광고 데이터 추출기")
 
 # 계정 선택 가이드 노출
 if selected_profile == "광고 ID 선택" or not selected_profile:
@@ -594,9 +601,11 @@ with col_date2:
 st.markdown("### 🗂&nbsp;&nbsp;광고 구성 단계별 선택")
 
 # 광고유형의 선택 순서 (플레이스광고 ➡️ 파워링크광고 ➡️ 파워컨텐츠광고)
+# 💡 [피드백 반영] 계정 선택 시 강제 리셋을 처리하기 위해 session state key를 함께 바인딩합니다.
 selected_ad_type = st.selectbox(
     "1. 광고그룹 유형을 선택해 주세요.", 
-    ['플레이스광고', '파워링크광고', '파워컨텐츠광고']
+    ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
+    key='selected_ad_type'
 )
 
 if is_test_mode:
@@ -701,10 +710,10 @@ if show_daily_detail:
                 "총비용 합계": total_cost
             }])
             
-            # 좌측 끝단 배치를 위한 독립된 '날짜' 표 구성
+            # 💡 [피드백 반영] 좌측 끝단 배치를 위한 독립된 '날짜' 표 구성
             date_df = raw_df[["날짜"]].copy()
             
-            # 우측 세 단에는 날짜 정보를 완벽히 차단하고 오직 실무 수치 정보만 수집한 데이터프레임 구성
+            # 💡 [피드백 반영] 우측 세 단에는 날짜 정보를 완벽히 차단하고 오직 실무 수치 정보만 수집한 데이터프레임 구성
             imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
             cpc_df = raw_df[["평균 CPC"]].copy()
             cost_df = raw_df[["총비용"]].copy()
@@ -717,7 +726,7 @@ if show_daily_detail:
             # 💡 [피드백 반영] 개별 제목 호출 대신 가로 컬럼 시작 직전 상단에 한 번만 대제목 명시
             st.markdown("#### 📊 일별 데이터")
             
-            # 지정해주신 비율인 1:1.2:1.2:1.2 로 4단 그리드를 구축합니다.
+            # 💡 [피드백 반영] 지정해주신 비율인 1:1.2:1.2:1.2 로 4단 그리드를 구축합니다.
             col_date, col1, col2, col3 = st.columns([1, 1.2, 1.2, 1.2])
             
             # (1) 첫 번째 col_date 단 : 오직 '날짜' 정보만 가진 표 렌더링 (복사 단추 미노출)
