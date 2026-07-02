@@ -62,7 +62,7 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* 💡 [피드백 적극 반영] 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 텍스트 줄바꿈 방지 및 자동 너비 수립 */
+    /* 💡 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 텍스트 줄바꿈 방지 및 자동 너비 수립 */
     div.stButton > button {
         background-color: #0A2540 !important; /* 신뢰감 있는 딥 네이비 배경 */
         border: none !important; /* 외곽 테두리 선 완전 제거 */
@@ -82,7 +82,7 @@ st.markdown("""
         border: none !important;
     }
     
-    /* 💡 [피드백 적극 반영] 전역 p 태그 간섭에 의한 색상 덮어쓰기를 원천 방어하도록 명확한 자식 선택자 수립 */
+    /* 전역 p 태그 간섭에 의한 색상 덮어쓰기를 원천 방어하도록 명확한 자식 선택자 수립 */
     div.stButton > button p {
         color: #FFFFFF !important; /* 글자색 완전한 흰색 보장 */
         font-weight: 900 !important; /* 가장 두꺼운 강도의 굵은 볼드체 유지 */
@@ -150,10 +150,8 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 # [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
-    # 💡 [피드백 적극 반영] 촌스러운 연노랑 테두리를 지우고 차분한 그레이 인디고 톤(#CBD5E0)으로 테두리선을 매칭합니다.
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #CBD5E0; white-space:nowrap !important;">'
     
-    # 💡 [피드백 적극 반영] 촌스러운 연노랑 색감을 전면 지우고, 합계표는 블루그레이(#D9E2EC), 일별 데이터는 실버그레이(#EDF2F7)로 일관성 있게 세팅했습니다.
     header_color = "#D9E2EC" if is_summary_table else "#EDF2F7"
     html += f'<thead><tr style="background-color:{header_color}; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px; white-space:nowrap !important;">'
     for col in df.columns:
@@ -161,7 +159,6 @@ def convert_df_to_html_grid(df, is_summary_table=False):
     html += '</tr></thead><tbody>'
     
     for i, row in df.iterrows():
-        # 요약표의 경우 옅은 소프트 블루그레이(#F0F4F8)를 주어 한층 격조 높은 데이터 카드를 형성합니다.
         row_style = "background-color:#F0F4F8;" if is_summary_table else "background-color:#FFFFFF;"
         html += f'<tr style="{row_style} border-bottom:1px solid #E5E5E5; height:32px; white-space:nowrap !important;">'
         
@@ -212,7 +209,6 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     
     unique_id = str(int(time.time() * 1000)) + str(abs(hash(title)))
     
-    # 💡 [피드백 적극 반영] 복사하기 버튼의 시인성과 명도 대비를 완전히 개선하여 보완했습니다. (딥 네이비 #0A2540 배경 및 화이트 텍스트)
     html_code = f"""
     <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
         {table_html}
@@ -475,12 +471,18 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
         
     stats_json = response.json()
     data_rows = []
+    
     if 'data' in stats_json:
-        # 네이버 서버가 전달하는 날짜 필드의 결측 에러를 방지하기 위해 
-        # python의 enumerate를 통해 i 인덱스를 확보하고 시작일자로부터 1일씩 순회하며 독자적으로 날짜를 생성 및 바인딩합니다.
+        # 안전성 강화: API 응답 배열 크기와 조회 날짜 간의 매핑 정합성 검증 추가
+        data_len = len(stats_json['data'])
+        expected_days = (end_date - start_date).days + 1
+        
         for i, stat in enumerate(stats_json['data']):
-            dt = (start_date + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
-            
+            if i < expected_days:
+                dt = (start_date + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+            else:
+                dt = "계산불가"
+                
             imp = int(stat.get('impCnt', 0))
             clk = int(stat.get('clkCnt', 0))
             ctr = float(stat.get('ctr', 0.0))
@@ -514,7 +516,6 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
         headers = get_header("GET", uri, api_key, secret_key, customer_id)
         response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
         
-        # 날짜 범위 수집 조건에 오류가 나는 버전일 시 기본 30일 범위로 재호출 시도
         if response.status_code != 200:
             params.pop('timeRange', None)
             response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
@@ -602,12 +603,10 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# 💡 [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
+# [사이드바 설계 및 Secrets 연동] 
 # ==========================================
 st.sidebar.markdown("### 📁 광고 계정 선택")
 
-# 💡 [피드백 반영] 불필요한 로컬 저장 연동 찌꺼기 코드(accounts.json 등)와 st.session_state['ad_accounts'] 캐시를 영구 소거하고,
-# st.secrets로부터 연동 키 리스트를 다이렉트로 실시간 매핑하도록 완성했습니다.
 available_accounts = []
 try:
     for k in st.secrets.keys():
@@ -620,20 +619,19 @@ except Exception:
 
 options_list = ["광고 ID 선택"] + available_accounts
 
-# 콜백 핸들러 정의 (피드백 반영: 계정 전환 시 st.secrets에서 키들을 직접 독자 추출)
+# 콜백 핸들러 정의
 def update_inputs_from_profile():
     prof = st.session_state.get('selected_profile')
-    if prof == "광고 ID 선택":
+    if prof == "광고 ID 선택" or not prof:
         st.session_state['input_customer_id'] = ""
         st.session_state['input_api_key'] = ""
         st.session_state['input_secret_key'] = ""
-    elif prof and prof in st.secrets:
+    elif prof in st.secrets:
         keys = st.secrets[prof]
         st.session_state['input_customer_id'] = keys["customer_id"]
         st.session_state['input_api_key'] = keys["api_key"]
         st.session_state['input_secret_key'] = keys["secret_key"]
     
-    # 계정이 변경되는 시점에 항상 광고그룹 유형 셀렉트박스를 '플레이스광고'로 원위치합니다.
     st.session_state['selected_ad_type'] = '플레이스광고'
 
 if 'selected_profile' not in st.session_state:
@@ -647,16 +645,14 @@ selected_profile = st.sidebar.selectbox(
     on_change=update_inputs_from_profile
 )
 
-# 수동 입력창, 등록/삭제/수정 단추 등을 완벽하게 소거했습니다.
 input_customer_id = st.session_state.get('input_customer_id', '')
 input_api_key = st.session_state.get('input_api_key', '')
 input_secret_key = st.session_state.get('input_secret_key', '')
 
 
 # ==========================================
-# [메인 제어] 플레이스 통계 및 결과 표 도출
+# [메인 제어] 
 # ==========================================
-# 대제목을 '광고 데이터 추출기'로 간결히 변경했습니다.
 st.subheader("광고 데이터 추출기")
 
 # 계정 선택 가이드 노출
@@ -670,16 +666,12 @@ is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id 
 # 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
 with col_date1:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
     start_date = st.date_input("조회 시작일", value=last_monday)
 with col_date2:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
     end_date = st.date_input("조회 종료일", value=last_sunday)
 
-# 대제목 이모지를 삭제하고 '광고 유형'으로 개편했습니다.
 st.markdown("### 광고 유형")
 
-# 원래 요구하셨던 세로형(수직형) 레이아웃으로 완벽히 복원했습니다.
 selected_ad_type = st.selectbox(
     "광고그룹", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
@@ -699,7 +691,7 @@ else:
 if not campaign_list:
     if st.session_state.get('api_error_msg'):
         st.error(f"❌ 데이터 추출 과정에서 아래와 같은 원인으로 실패했습니다:\n\n{st.session_state['api_error_msg']}")
-        st.session_state['api_error_msg'] = ""  # 리셋
+        st.session_state['api_error_msg'] = ""  
     else:
         st.warning("선택하신 유형에 부합하는 캠페인이 확인되지 않습니다.")
     st.stop()
@@ -796,7 +788,7 @@ if show_data:
                 
     if st.session_state.get('api_error_msg'):
         st.error(f"❌ 광고 데이터를 수집하는 과정에서 에러가 감지되었습니다. 원인을 점검해 주세요:\n\n{st.session_state['api_error_msg']}")
-        st.session_state['api_error_msg'] = ""  # 리셋
+        st.session_state['api_error_msg'] = ""  
         st.stop()
         
     # 일별 데이터 표출 시작
@@ -816,6 +808,7 @@ if show_data:
             "총비용 합계": total_cost
         }])
         
+        # 날짜 제외 복사 기능을 위한 지표별 개별 슬라이싱 데이터 프레임셋 분리
         date_df = raw_df[["날짜"]].copy()
         imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
         cpc_df = raw_df[["평균 CPC"]].copy()
@@ -829,7 +822,7 @@ if show_data:
         # 가로 격자 상단에 단 하나의 대제목만 정적 마킹합니다.
         st.markdown("#### 📊 일별 데이터")
         
-        # 1:1.2:1.2:1.2 비율 구성
+        # 1:1.2:1.2:1.2 비율 구성 (엑셀 템플릿 복사용 고유 열분할 뷰 유지)
         col_date, col1, col2, col3 = st.columns([1, 1.2, 1.2, 1.2])
         
         # (1) 날짜 표 - 버튼 불필요하므로 convert_df_to_html_grid 후 components.html 로만 렌더링
