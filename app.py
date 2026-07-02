@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 
 # ==========================================
-# [다크모드 원천 방어 및 고대비 텍스트 테마 고정]
+# [다크모드 원천 방어 및 사이드바 상시 고정식 wide 테마 고정]
 # ==========================================
 # initial_sidebar_state를 expanded로 지정하여 항상 펼쳐진 채로 기동합니다.
 st.set_page_config(page_title="광고 데이터 추출기", layout="wide", initial_sidebar_state="expanded")
@@ -43,13 +43,13 @@ st.markdown("""
         background-color: #FFFFFF !important;
     }
     
-    /* 💡 [피드백 적극 반영] 사이드바 무선 라디오를 고급스러운 클릭형 메뉴 카드로 탈바꿈시킵니다. */
+    /* 💡 [피드백 적극 반영] 사이드바 무선 라디오를 대형 클릭형 메뉴 카드로 탈바꿈시킵니다. */
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #CBD5E0 !important;
         border-radius: 6px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 8px !important;
+        padding: 14px 20px !important; /* 클릭 면적 극대화를 위한 내부 패딩 증폭 */
+        margin-bottom: 10px !important;
         width: 100% !important;
         display: flex !important;
         transition: all 0.2s ease-in-out !important;
@@ -61,31 +61,32 @@ st.markdown("""
         display: none !important;
     }
     
-    /* 💡 [피드백 적극 반영] 사이드바 선택 목록 텍스트 크기를 15px 볼드로 키우고 기조를 맞춥니다. */
+    /* 💡 [피드백 적극 반영] 사이드바 선택 목록 텍스트 크기를 16px 볼드로 키우고 기조를 맞춥니다. */
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] div[data-testid="stWidgetLabel"] p {
-        font-size: 15px !important;
+        font-size: 16px !important;
         font-weight: 700 !important;
-        color: #000000 !important;
+        color: #333333 !important;
         margin: 0 !important;
     }
     
-    /* 💡 [피드백 적극 반영] 선택 시 클릭된 영역처럼 은은한 인디고 블루(#EBF8FF) 배경과 #2B6CB0 보더라인 매핑 */
+    /* 💡 [피드백 적극 반영] 선택 시 완전히 다른 진한 색상(딥 네이비 #0A2540)으로 채우고 글씨를 흰색(#FFFFFF)으로 반전시켜 확실한 클릭 인지를 제공합니다. */
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] {
-        background-color: #EBF8FF !important; 
-        border: 2px solid #2B6CB0 !important;
+        background-color: #0A2540 !important; 
+        border: 1px solid #000000 !important;
+        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important;
     }
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] div[data-testid="stWidgetLabel"] p {
-        color: #2B6CB0 !important; /* 선택 항목 텍스트 딥블루 고정 */
+        color: #FFFFFF !important; /* 선택 항목 텍스트 흰색 고정 */
     }
     
     /* 호버(Hover) 시 피드백 이펙트 */
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:hover {
         background-color: #F7FAFC !important;
-        border-color: #CBD5E0 !important;
+        border-color: #A0AEC0 !important;
     }
     div[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"]:hover {
-        background-color: #EBF8FF !important;
-        border-color: #2B6CB0 !important;
+        background-color: #0A2540 !important;
+        border-color: #000000 !important;
     }
     
     /* 날짜 선택 인풋 박스 배경 흰색, 글자색 검정 고정 */
@@ -98,23 +99,27 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* 데이터 추출 버튼 테두리 제거, 스카이블루 배경, 흰색 고대비 볼드 텍스트 */
+    /* 💡 [피드백 적극 반영] 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 텍스트 줄바꿈 방지 및 자동 너비 수립 */
     div.stButton > button {
-        background-color: #2B6CB0 !important; 
-        border: none !important; 
+        background-color: #0A2540 !important; /* 딥 네이비 배경 채우기 */
+        border: none !important; /* 외곽 테두리 선 완전 제거 */
         border-radius: 6px !important;
-        padding: 0.8rem 2.0rem !important;
+        padding: 0.8rem 2.5rem !important;
         font-size: 15px !important;
+        letter-spacing: 0.5px !important;
         transition: all 0.3s ease;
-        width: 100%;
-        box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2) !important;
+        width: auto !important; /* 가로 크기 자동 맞춤 */
+        white-space: nowrap !important; /* 위아래 여러 줄 줄바꿈 절대 방지 */
+        display: block !important;
+        margin: 0 auto !important; /* 정중앙 정렬 */
+        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important; /* 입체 보정 효과 */
     }
     div.stButton > button:hover {
-        background-color: #3182CE !important; 
+        background-color: #1A365D !important; /* 오버 시 조금 더 밝은 네이비 */
         border: none !important;
     }
     
-    /* 전역 p 태그 간섭에 의한 색상 덮어쓰기를 방지하도록 명확한 자식 선택자 수립 */
+    /* 💡 [피드백 적극 반영] 전역 p 태그 간섭에 의한 색상 덮어쓰기를 방지하도록 명확한 자식 선택자 수립 */
     div.stButton > button p {
         color: #FFFFFF !important; /* 글자색 완전한 흰색 보장 */
         font-weight: 900 !important; /* 가장 두꺼운 강도의 굵은 볼드체 유지 */
@@ -171,10 +176,10 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 # [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
-    # 반응형 스케일링 중 텍스트가 2줄로 줄 바꿈 되어 표가 깨지지 않도록 white-space: nowrap을 원천 강제 주입합니다.
+    # 💡 [피드백 적극 반영] 테이블 테두리를 연노랑에서 차분한 그레이 인디고 톤(#CBD5E0)으로 테두리선을 매칭합니다.
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #CBD5E0; white-space:nowrap !important;">'
     
-    # 일반 표 성과 가독성이 훌륭했던 파스텔 블루-그레이 톤으로 세팅합니다.
+    # 💡 [피드백 적극 반영] 촌스러운 연노랑 색감을 전면 지우고, 합계표는 블루그레이(#D9E2EC), 일별 데이터는 실버그레이(#EDF2F7)로 일관성 있게 세팅했습니다.
     header_color = "#D9E2EC" if is_summary_table else "#EDF2F7"
     html += f'<thead><tr style="background-color:{header_color}; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px; white-space:nowrap !important;">'
     for col in df.columns:
@@ -226,7 +231,7 @@ def dataframe_to_tsv_string(df):
     return "\n".join(lines)
 
 
-# [컴포넌트] 신뢰형 인디고 블루 복사 버튼 템플릿 제어 모듈
+# [컴포넌트] 신뢰형 딥 네이비 복사 버튼 템플릿 제어 모듈
 def render_table_and_button_html(df, title, is_summary_table=False):
     table_html = convert_df_to_html_grid(df, is_summary_table)
     tsv_text = dataframe_to_tsv_string(df)
@@ -238,8 +243,8 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
         {table_html}
         <button id="btn-{unique_id}" onclick="copyText()" style="
-            background-color: #EBF8FF !important;
-            color: #2B6CB0 !important;
+            background-color: #0A2540 !important;
+            color: #FFFFFF !important;
             border: none !important;
             border-radius: 6px !important;
             padding: 10px 16px !important;
@@ -248,11 +253,11 @@ def render_table_and_button_html(df, title, is_summary_table=False):
             cursor: pointer !important;
             width: 100% !important;
             margin-top: 10px !important;
-            box-shadow: 0 4px 6px rgba(43, 108, 176, 0.1) !important;
+            box-shadow: 0 4px 6px rgba(10,37,64,0.1) !important;
             text-align: center !important;
             display: block !important;
             transition: all 0.2s;
-        " onmouseover="this.style.backgroundColor='#BEE3F8'" onmouseout="this.style.backgroundColor='#EBF8FF'">
+        " onmouseover="this.style.backgroundColor='#1A365D'" onmouseout="this.style.backgroundColor='#0A2540'">
             📋 복사하기
         </button>
         <textarea id="area-{unique_id}" style="position:absolute; left:-9999px; width:1px; height:1px;">{tsv_text}</textarea>
@@ -292,8 +297,9 @@ def render_table_and_button_html(df, title, is_summary_table=False):
         btn.style.color = '#000000';
         setTimeout(function() {{
             btn.innerHTML = '📋 복사하기';
-            btn.style.backgroundColor = '#EBF8FF';
-            btn.style.borderColor = '#2B6CB0';
+            btn.style.backgroundColor = '#0A2540';
+            btn.style.borderColor = 'none';
+            btn.style.color = '#FFFFFF';
         }}, 2000);
     }}
     </script>
@@ -331,88 +337,6 @@ def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=
         """
         iframe_height = max(36 + (32 * len(df)) + 40, 140)
         st.components.v1.html(wrapped_html, height=iframe_height, scrolling=False)
-
-
-# ==========================================
-# [가상 데이터 공급] 임시 시뮬레이션용 모의 데이터셋 생성기
-# ==========================================
-def get_mock_campaigns(ad_type):
-    if ad_type == '파워링크광고':
-        return [{"nccCampaignId": "camp-sh-01", "name": "[검색] 브랜드_공식_캠페인"},
-                {"nccCampaignId": "camp-sh-02", "name": "[검색] 파워링크_제품홍보"}]
-    elif ad_type == '플레이스광고':
-        return [{"nccCampaignId": "camp-pl-01", "name": "[플레이스] 지점_스마트플레이스_노출"}]
-    else:
-        return [{"nccCampaignId": "camp-pc-01", "name": "[파워컨텐츠] 블로그_콘텐츠_캠페인"}]
-
-def get_mock_adgroups(campaign_id):
-    if campaign_id == "camp-sh-01":
-        return [{"nccAdgroupId": "grp-sh-01-a", "name": "PC_대표브랜드_광고그룹"},
-                {"nccAdgroupId": "grp-sh-01-b", "name": "모바일_대표브랜드_광고그룹"}]
-    elif campaign_id == "camp-sh-02":
-        return [{"nccAdgroupId": "grp-sh-02-a", "name": "인기상품_키워드_그룹"}]
-    elif campaign_id == "camp-pl-01":
-        return [{"nccAdgroupId": "grp-pl-01-a", "name": "지역상권_플레이스_그룹"}]
-    else:
-        return [{"nccAdgroupId": "grp-pc-01-a", "name": "리뷰_블로그_광고그룹"}]
-
-def get_mock_daily_stats(adgroup_id, start_date, end_date):
-    date_list = []
-    curr = start_date
-    while curr <= end_date:
-        date_list.append(curr)
-        curr += datetime.timedelta(days=1)
-    
-    import random
-    random.seed(hash(adgroup_id) + int(start_date.strftime("%Y%m%d")))
-    
-    rows = []
-    for d in date_list:
-        imp = random.randint(4000, 15000)
-        clk = random.randint(80, 350)
-        cost = clk * random.randint(500, 900)
-        ctr = round((clk / imp) * 100, 2) if imp > 0 else 0.0
-        cpc = int(cost / clk) if clk > 0 else 0
-        
-        rows.append({
-            "날짜": d.strftime("%Y-%m-%d"),
-            "노출수": imp,
-            "클릭수": clk,
-            "클릭률(%)": ctr,
-            "평균 CPC": cpc,
-            "총비용": cost
-        })
-    return pd.DataFrame(rows)
-
-def get_mock_keyword_stats(adgroup_id, ad_type, start_date, end_date):
-    import random
-    random.seed(hash(adgroup_id))
-    
-    if ad_type == '플레이스광고':
-        keywords = ["강남역 맛집", "강남역 점심 추천", "역삼 근처 조용한 일식집", "강남 주차가능 맛집", "강남 스마트플레이스 예약", 
-                    "강남 핫플레이스 추천", "모임하기 좋은 일식당", "강남 가성비 횟집", "강남역 데이트 코스"]
-    else:
-        keywords = ["마케팅 대행사", "데이터 분석", "광고 가이드", "보고서 엑셀", "스마트스토어 홍보", 
-                    "주간 성과표", "블로그마케팅", "지역 소상공인 광고", "인하우스 마케터"]
-    
-    selected_kws = random.sample(keywords, min(len(keywords), 10))
-    
-    selected_days = (end_date - start_date).days + 1
-    scale_factor = selected_days / 28.0
-    
-    rows = []
-    for kw in selected_kws:
-        base_imp = random.randint(4000, 15000)
-        base_clk = random.randint(80, 350)
-        
-        rows.append({
-            "키워드명": kw,
-            "노출수": int(base_imp * scale_factor),
-            "클릭수": int(base_clk * scale_factor)
-        })
-    df = pd.DataFrame(rows)
-    df = df.sort_values(by="클릭수", ascending=False).head(10).reset_index(drop=True)
-    return df
 
 
 # ==========================================
@@ -622,14 +546,14 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 
 
 # ==========================================
-# [사이드바 설계 및 Secrets 연동] 
+# 💡 [사이드바 설계 및 Secrets 연동] 
 # ==========================================
-# 💡 [피드백 반영] 불필요한 라벨 텍스트를 제거하고 세련된 상시 노출식 메뉴로 튜닝했습니다.
+# 💡 [피드백 적극 반영] 사이드바 목록 이모지 제거, 텍스트 크기 확장 및 클릭 영역 딥 네이비(#0A2540) 박스 교정 완료
 selected_menu = st.sidebar.radio(
     label="이동할 서비스를 선택해 주세요.",
     options=["광고 데이터 추출기", "키워드 관리", "추가 확장"],
     key="navigation_menu",
-    label_visibility="collapsed" # 라벨을 완벽히 숨겨 텍스트를 삭제 처리합니다.
+    label_visibility="collapsed" # 라벨 텍스트 완전 소거 고정
 )
 
 
@@ -638,7 +562,7 @@ selected_menu = st.sidebar.radio(
 # ==========================================
 if selected_menu == "광고 데이터 추출기":
 
-    # 💡 [피드백 반영] 앱별 최상단 메인 영역에 명시적 타이틀을 각 단독 마킹합니다.
+    # 💡 [피드백 적극 반영] 앱별 최상단 메인 영역에 명시적 타이틀 단독 마킹
     st.subheader("광고 데이터 추출기")
 
     # secrets 파싱
@@ -686,33 +610,31 @@ if selected_menu == "광고 데이터 추출기":
         st.info("👈 상단의 셀렉트 박스에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
         st.stop()
 
-    # 가상 모드 작동 여부 결정
-    is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
-
     # 조회 범위 입력 상자
     col_date1, col_date2 = st.columns(2)
     with col_date1:
+        # 요일 정보를 기재 방식에서 완전히 소거했습니다.
         start_date = st.date_input("조회 시작일", value=last_monday)
     with col_date2:
+        # 요일 정보를 기재 방식에서 완전히 소거했습니다.
         end_date = st.date_input("조회 종료일", value=last_sunday)
 
+    # 대제목 이모지를 삭제하고 '광고 유형'으로 개편했습니다.
     st.markdown("### 광고 유형")
 
+    # 원래 요구하셨던 세로형(수직형) 레이아웃으로 완벽히 복원했습니다.
     selected_ad_type = st.selectbox(
         "광고그룹", 
         ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
         key='selected_ad_type'
     )
 
-    if is_test_mode:
-        campaign_list = get_mock_campaigns(selected_ad_type)
-    else:
-        campaign_list = fetch_campaigns(
-            input_customer_id, 
-            input_api_key, 
-            input_secret_key, 
-            selected_ad_type
-        )
+    campaign_list = fetch_campaigns(
+        input_customer_id, 
+        input_api_key, 
+        input_secret_key, 
+        selected_ad_type
+    )
 
     if not campaign_list:
         if st.session_state.get('api_error_msg'):
@@ -722,18 +644,16 @@ if selected_menu == "광고 데이터 추출기":
             st.warning("선택하신 유형에 부합하는 캠페인이 확인되지 않습니다.")
         st.stop()
 
+    # '캠페인' 라벨 명시 및 복원
     camp_options = {c['nccCampaignId']: c['name'] for c in campaign_list}
     selected_camp_id = st.selectbox("캠페인", options=list(camp_options.keys()), format_func=lambda x: camp_options[x])
 
-    if is_test_mode:
-        adgroup_list = get_mock_adgroups(selected_camp_id)
-    else:
-        adgroup_list = fetch_adgroups(
-            input_customer_id, 
-            input_api_key, 
-            input_secret_key, 
-            selected_camp_id
-        )
+    adgroup_list = fetch_adgroups(
+        input_customer_id, 
+        input_api_key, 
+        input_secret_key, 
+        selected_camp_id
+    )
 
     if not adgroup_list:
         if st.session_state.get('api_error_msg'):
@@ -743,21 +663,19 @@ if selected_menu == "광고 데이터 추출기":
             st.warning("지정된 캠페인 하위에 개설된 광고그룹이 존재하지 않습니다.")
         st.stop()
 
+    # '상세 광고그룹' 라벨 명시 및 복원
     adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
     selected_adg_id = st.selectbox("상세 광고그룹", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
 
+
     # '평균 광고 노출 입찰가' 가이드 연동
     if selected_ad_type == '플레이스광고':
-        avg_bid_val = None
-        if not is_test_mode:
-            avg_bid_val = fetch_place_avg_bid(
-                input_customer_id, 
-                input_api_key, 
-                input_secret_key, 
-                selected_adg_id
-            )
-        else:
-            avg_bid_val = 1460
+        avg_bid_val = fetch_place_avg_bid(
+            input_customer_id, 
+            input_api_key, 
+            input_secret_key, 
+            selected_adg_id
+        )
         
         if avg_bid_val is not None:
             st.info(f"💡 **같은 지역 동종 업종 광고들의 평균 광고 노출 입찰가 참고하기 도움말**\n\n"
@@ -765,12 +683,13 @@ if selected_menu == "광고 데이터 추출기":
 
     st.markdown("---")
 
-    # 추출 단축 중앙 배열 및 볼드화 가속
+    # 💡 [피드백 반영] 데이터 추출 버튼을 가로로 확장하고 중앙에 정렬하기 위해 분할 컴포넌트를 사용합니다.
     col_btn_left, col_btn_center, col_btn_right = st.columns([1.5, 1, 1.5])
     with col_btn_center:
         show_data = st.button("데이터 추출")
 
     st.markdown("###")
+
 
     # ==========================================
     # [데이터 추출 액션 시작]
@@ -780,33 +699,27 @@ if selected_menu == "광고 데이터 추출기":
         
         with st.spinner("네이버 광고 서버로부터 원시 데이터를 정합 수집 중입니다..."):
             # 1. 일별 상세 지표 로드
-            if is_test_mode:
-                raw_df = get_mock_daily_stats(selected_adg_id, start_date, end_date)
-            else:
-                raw_df = fetch_daily_stats(
+            raw_df = fetch_daily_stats(
+                input_customer_id, 
+                input_api_key, 
+                input_secret_key, 
+                selected_adg_id, 
+                start_date, 
+                end_date
+            )
+                
+            # 2. 키워드별 성과 지표 로드 (플레이스광고 아닐 시에만 후행 호출)
+            kw_df = None
+            if selected_ad_type != '플레이스광고':
+                kw_df = fetch_keyword_stats(
                     input_customer_id, 
                     input_api_key, 
                     input_secret_key, 
                     selected_adg_id, 
                     start_date, 
-                    end_date
+                    end_date, 
+                    selected_ad_type
                 )
-            
-            # 2. 키워드별 성과 지표 로드 (플레이스광고 아닐 시에만 후행 호출)
-            kw_df = None
-            if selected_ad_type != '플레이스광고':
-                if is_test_mode:
-                    kw_df = get_mock_keyword_stats(selected_adg_id, selected_ad_type, start_date, end_date)
-                else:
-                    kw_df = fetch_keyword_stats(
-                        input_customer_id, 
-                        input_api_key, 
-                        input_secret_key, 
-                        selected_adg_id, 
-                        start_date, 
-                        end_date, 
-                        selected_ad_type
-                    )
                     
         if st.session_state.get('api_error_msg'):
             st.error(f"❌ 광고 데이터를 수집하는 과정에서 에러가 감지되었습니다. 원인을 점검해 주세요:\n\n{st.session_state['api_error_msg']}")
@@ -856,7 +769,7 @@ if selected_menu == "광고 데이터 추출기":
                 """
                 iframe_height = get_table_iframe_height(date_df, is_summary=False)
                 st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=False)
-            
+                
             # (2) 노출수, 클릭수 표 - 빈 값("")을 주어 타이틀 없이 수치와 복사 단추만 콤팩트하게 출력
             with col1:
                 render_table_with_copy_btn(imp_clk_df, "", is_summary_table=False)
