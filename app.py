@@ -8,9 +8,10 @@ import requests
 import pandas as pd
 
 # ==========================================
-# 💡 [다크모드 원천 방어 및 신뢰성 딥 네이비 테마 고정]
+# 💡 [다크모드 원천 방어 및 사이드바 고정형 wide 테마 고정]
 # ==========================================
-st.set_page_config(page_title="광고 데이터 추출기", layout="wide")
+# initial_sidebar_state를 expanded로 지정하여 항상 펼쳐진 채로 기동합니다.
+st.set_page_config(page_title="광고 데이터 추출기", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -46,7 +47,7 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* 차분하고 이성적인 연스카이 그레이 블루 톤으로 드롭다운 호버 하이라이트 지정 */
+    /* 이성적인 연스카이 그레이 블루 톤으로 드롭다운 호버 하이라이트 지정 */
     li[role="option"]:hover, div[role="option"]:hover {
         background-color: #EBF4FA !important;
         color: #000000 !important;
@@ -62,27 +63,28 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* 💡 [피드백 적극 반영] 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 텍스트 줄바꿈 방지 및 자동 너비 수립 */
+    /* 데이터 추출 버튼 테두리 제거, 딥 네이비(#0A2540) 채우기, 완전 흰색(#FFFFFF) 아주 두꺼운 볼드 텍스트 */
     div.stButton > button {
-        background-color: #0A2540 !important; /* 신뢰감 있는 딥 네이비 배경 */
-        border: none !important; /* 외곽 테두리 선 완전 제거 */
+        background-color: #0A2540 !important; 
+        border: none !important; 
         border-radius: 6px !important;
-        padding: 0.8rem 2.5rem !important;
+        padding: 0.8rem 2.0rem !important;
         font-size: 15px !important;
+        font-weight: 900 !important; 
         letter-spacing: 0.5px !important;
         transition: all 0.3s ease;
         width: auto !important; /* 가로 크기 자동 맞춤 */
         white-space: nowrap !important; /* 위아래 여러 줄 줄바꿈 절대 방지 */
         display: block !important;
         margin: 0 auto !important; /* 정중앙 정렬 */
-        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important; /* 입체 보정 효과 */
+        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important;
     }
     div.stButton > button:hover {
-        background-color: #1A365D !important; /* 오버 시 한 단계 부드러운 네이비 */
+        background-color: #1A365D !important; 
         border: none !important;
     }
     
-    /* 💡 [피드백 적극 반영] 전역 p 태그 간섭에 의한 색상 덮어쓰기를 원천 방어하도록 명확한 자식 선택자 수립 */
+    /* 전역 p 태그 간섭에 의한 색상 덮어쓰기를 방지하도록 명확한 자식 선택자 수립 */
     div.stButton > button p {
         color: #FFFFFF !important; /* 글자색 완전한 흰색 보장 */
         font-weight: 900 !important; /* 가장 두꺼운 강도의 굵은 볼드체 유지 */
@@ -91,23 +93,12 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* 사이드바 열고 닫는 단추(화살표 기호) 항상 보이도록 명도대비 고정 패치 */
+    /* 💡 [피드백 적극 반영 - 사이드바 상시 고정] 접기/열기 버튼을 CSS로 완전히 차단하여 비콜랩서블 형태로 세팅합니다. */
     button[data-testid="stSidebarCollapse"] {
-        background-color: #FAFAFA !important;
-        border: 1px solid #D0D0D0 !important;
-        color: #000000 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    button[data-testid="stSidebarCollapse"] svg {
-        fill: #000000 !important;
-        color: #000000 !important;
+        display: none !important;
     }
     button[data-testid="collapse-sidebar"] {
-        color: #000000 !important;
-    }
-    button[data-testid="collapse-sidebar"] svg {
-        fill: #000000 !important;
-        color: #000000 !important;
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -150,10 +141,10 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 # [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
-    # 💡 [피드백 적극 반영] 촌스러운 연노랑 테두리를 지우고 차분한 그레이 인디고 톤(#CBD5E0)으로 테두리선을 매칭합니다.
+    # 반응형 스케일링 중 텍스트가 2줄로 줄 바꿈 되어 표가 깨지지 않도록 white-space: nowrap을 강제 주입합니다.
     html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #CBD5E0; white-space:nowrap !important;">'
     
-    # 💡 [피드백 적극 반영] 촌스러운 연노랑 색감을 전면 지우고, 합계표는 블루그레이(#D9E2EC), 일별 데이터는 실버그레이(#EDF2F7)로 일관성 있게 세팅했습니다.
+    # 촌스러운 연노랑 색감을 전면 지우고, 합계표는 블루그레이(#D9E2EC), 일별 데이터는 실버그레이(#EDF2F7)로 일관성 있게 세팅했습니다.
     header_color = "#D9E2EC" if is_summary_table else "#EDF2F7"
     html += f'<thead><tr style="background-color:{header_color}; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px; white-space:nowrap !important;">'
     for col in df.columns:
@@ -161,9 +152,8 @@ def convert_df_to_html_grid(df, is_summary_table=False):
     html += '</tr></thead><tbody>'
     
     for i, row in df.iterrows():
-        # 요약표의 경우 옅은 소프트 블루그레이(#F0F4F8)를 주어 한층 격조 높은 데이터 카드를 형성합니다.
         row_style = "background-color:#F0F4F8;" if is_summary_table else "background-color:#FFFFFF;"
-        html += f'<tr style="{row_style} border-bottom:1px solid #E5E5E5; height:32px; white-space:nowrap !important;">'
+        html += f'<tr style="{row_style} border-bottom:1px solid #E2E8F0; height:32px; white-space:nowrap !important;">'
         
         for col in df.columns:
             val = row[col]
@@ -212,7 +202,6 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     
     unique_id = str(int(time.time() * 1000)) + str(abs(hash(title)))
     
-    # 💡 [피드백 적극 반영] 복사하기 버튼의 시인성과 명도 대비를 완전히 개선하여 보완했습니다. (딥 네이비 #0A2540 배경 및 화이트 텍스트)
     html_code = f"""
     <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
         {table_html}
@@ -595,271 +584,279 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
                         })
                         
         if data_rows:
-            df = pd.DataFrame(data_rows)
+            df = pd.DataFrame(df)
             df = df.sort_values(by="클릭수", ascending=False).head(10).reset_index(drop=True)
             return df
         return None
 
 
 # ==========================================
-# 💡 [사이드바 설계 및 Secrets 연동] 로컬 연동 및 영구저장 데이터 완전 소거
+# 💡 [사이드바 설계 및 Secrets 연동] 
 # ==========================================
-st.sidebar.markdown("### 📁 광고 계정 선택")
+st.sidebar.markdown("### 📁 서비스 메뉴")
 
-# 💡 [피드백 반영] 불필요한 로컬 저장 연동 찌꺼기 코드(accounts.json 등)와 st.session_state['ad_accounts'] 캐시를 영구 소거하고,
-# st.secrets로부터 연동 키 리스트를 다이렉트로 실시간 매핑하도록 완성했습니다.
-available_accounts = []
-try:
-    for k in st.secrets.keys():
-        section = st.secrets[k]
-        if hasattr(section, "get") or isinstance(section, dict):
-            if "customer_id" in section and "api_key" in section and "secret_key" in section:
-                available_accounts.append(k)
-except Exception:
-    pass
-
-options_list = ["광고 ID 선택"] + available_accounts
-
-# 콜백 핸들러 정의 (피드백 반영: 계정 전환 시 st.secrets에서 키들을 직접 독자 추출)
-def update_inputs_from_profile():
-    prof = st.session_state.get('selected_profile')
-    if prof == "광고 ID 선택":
-        st.session_state['input_customer_id'] = ""
-        st.session_state['input_api_key'] = ""
-        st.session_state['input_secret_key'] = ""
-    elif prof and prof in st.secrets:
-        keys = st.secrets[prof]
-        st.session_state['input_customer_id'] = keys["customer_id"]
-        st.session_state['input_api_key'] = keys["api_key"]
-        st.session_state['input_secret_key'] = keys["secret_key"]
-    
-    # 계정이 변경되는 시점에 항상 광고그룹 유형 셀렉트박스를 '플레이스광고'로 원위치합니다.
-    st.session_state['selected_ad_type'] = '플레이스광고'
-
-if 'selected_profile' not in st.session_state:
-    st.session_state['selected_profile'] = "광고 ID 선택"
-    update_inputs_from_profile()
-
-selected_profile = st.sidebar.selectbox(
-    "조회할 광고 계정을 선택해 주세요.", 
-    options=options_list,
-    key='selected_profile',
-    on_change=update_inputs_from_profile
+# 💡 [피드백 적극 반영 - 사이드바에 기능별 멀티 앱 구분 내비게이션 구성]
+selected_menu = st.sidebar.radio(
+    "이동할 서비스를 선택해 주세요.",
+    ["광고 데이터 추출기", "키워드 관리", "추가 확장"],
+    key="navigation_menu"
 )
 
-# 수동 입력창, 등록/삭제/수정 단추 등을 완벽하게 소거했습니다.
-input_customer_id = st.session_state.get('input_customer_id', '')
-input_api_key = st.session_state.get('input_api_key', '')
-input_secret_key = st.session_state.get('input_secret_key', '')
-
 
 # ==========================================
-# [메인 제어] 플레이스 통계 및 결과 표 도출
+# [앱 분기 1] 광고 데이터 추출기 프로그램 가동
 # ==========================================
-# 대제목을 '광고 데이터 추출기'로 간결히 변경했습니다.
-st.subheader("광고 데이터 추출기")
+if selected_menu == "광고 데이터 추출기":
 
-# 계정 선택 가이드 노출
-if selected_profile == "광고 ID 선택" or not selected_profile:
-    st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
-    st.stop()
+    # secrets 파싱
+    available_accounts = []
+    try:
+        for k in st.secrets.keys():
+            section = st.secrets[k]
+            if hasattr(section, "get") or isinstance(section, dict):
+                if "customer_id" in section and "api_key" in section and "secret_key" in section:
+                    available_accounts.append(k)
+    except Exception:
+        pass
 
-# 가상 모드 작동 여부 결정
-is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
+    options_list = ["광고 ID 선택"] + available_accounts
 
-# 조회 범위 입력 상자
-col_date1, col_date2 = st.columns(2)
-with col_date1:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
-    start_date = st.date_input("조회 시작일", value=last_monday)
-with col_date2:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
-    end_date = st.date_input("조회 종료일", value=last_sunday)
-
-# 대제목 이모지를 삭제하고 '광고 유형'으로 개편했습니다.
-st.markdown("### 광고 유형")
-
-# 원래 요구하셨던 세로형(수직형) 레이아웃으로 완벽히 복원했습니다.
-selected_ad_type = st.selectbox(
-    "광고그룹", 
-    ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
-    key='selected_ad_type'
-)
-
-if is_test_mode:
-    campaign_list = get_mock_campaigns(selected_ad_type)
-else:
-    campaign_list = fetch_campaigns(
-        input_customer_id, 
-        input_api_key, 
-        input_secret_key, 
-        selected_ad_type
+    # 💡 [피드백 적극 반영] 계정 선택 선택지를 사이드바에서 메인 상단으로 옮겼습니다.
+    selected_profile = st.selectbox(
+        "조회할 광고 계정을 선택해 주세요.", 
+        options=options_list,
+        key='selected_profile'
     )
 
-if not campaign_list:
-    if st.session_state.get('api_error_msg'):
-        st.error(f"❌ 데이터 추출 과정에서 아래와 같은 원인으로 실패했습니다:\n\n{st.session_state['api_error_msg']}")
-        st.session_state['api_error_msg'] = ""  # 리셋
+    # 💡 선택 계정 변경 감지 시 광고유형을 플레이스로 강제 회귀시키는 트리거 장치
+    if "last_selected_profile" not in st.session_state:
+        st.session_state["last_selected_profile"] = selected_profile
+
+    if st.session_state["last_selected_profile"] != selected_profile:
+        st.session_state["selected_ad_type"] = "플레이스광고"
+        st.session_state["last_selected_profile"] = selected_profile
+        st.rerun()
+
+    # 동적 매핑 수립
+    if selected_profile != "광고 ID 선택" and selected_profile in st.secrets:
+        active_keys = st.secrets[selected_profile]
+        input_customer_id = active_keys["customer_id"]
+        input_api_key = active_keys["api_key"]
+        input_secret_key = active_keys["secret_key"]
     else:
-        st.warning("선택하신 유형에 부합하는 캠페인이 확인되지 않습니다.")
-    st.stop()
+        input_customer_id = ""
+        input_api_key = ""
+        input_secret_key = ""
 
-# '캠페인' 라벨 명시 및 복원
-camp_options = {c['nccCampaignId']: c['name'] for c in campaign_list}
-selected_camp_id = st.selectbox("캠페인", options=list(camp_options.keys()), format_func=lambda x: camp_options[x])
+    # 계정 미선택 시 정지
+    if selected_profile == "광고 ID 선택" or not selected_profile:
+        st.info("👈 상단의 셀렉트 박스에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
+        st.stop()
 
-if is_test_mode:
-    adgroup_list = get_mock_adgroups(selected_camp_id)
-else:
-    adgroup_list = fetch_adgroups(
-        input_customer_id, 
-        input_api_key, 
-        input_secret_key, 
-        selected_camp_id
+    # 가상 모드 작동 여부 결정
+    is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
+
+    # 조회 범위 입력 상자
+    col_date1, col_date2 = st.columns(2)
+    with col_date1:
+        start_date = st.date_input("조회 시작일", value=last_monday)
+    with col_date2:
+        end_date = st.date_input("조회 종료일", value=last_sunday)
+
+    st.markdown("### 광고 유형")
+
+    selected_ad_type = st.selectbox(
+        "광고그룹", 
+        ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
+        key='selected_ad_type'
     )
 
-if not adgroup_list:
-    if st.session_state.get('api_error_msg'):
-        st.error(f"❌ 데이터 추출 과정에서 아래와 같은 원인으로 실패했습니다:\n\n{st.session_state['api_error_msg']}")
-        st.session_state['api_error_msg'] = ""
+    if is_test_mode:
+        campaign_list = get_mock_campaigns(selected_ad_type)
     else:
-        st.warning("지정된 캠페인 하위에 개설된 광고그룹이 존재하지 않습니다.")
-    st.stop()
-
-# '상세 광고그룹' 라벨 명시 및 복원
-adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
-selected_adg_id = st.selectbox("상세 광고그룹", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
-
-
-# '평균 광고 노출 입찰가' 가이드 연동
-if selected_ad_type == '플레이스광고':
-    avg_bid_val = None
-    if not is_test_mode:
-        avg_bid_val = fetch_place_avg_bid(
+        campaign_list = fetch_campaigns(
             input_customer_id, 
             input_api_key, 
             input_secret_key, 
-            selected_adg_id
+            selected_ad_type
         )
-    else:
-        avg_bid_val = 1460
-        
-    if avg_bid_val is not None:
-        st.info(f"💡 **같은 지역 동종 업종 광고들의 평균 광고 노출 입찰가 참고하기 도움말**\n\n"
-                f"**평균 광고 노출 입찰가 : {avg_bid_val:,}**")
 
-st.markdown("---")
-
-# 데이터 추출 버튼을 가로로 확장하고 중앙에 정렬하기 위해 분할 컴포넌트를 사용합니다.
-col_btn_left, col_btn_center, col_btn_right = st.columns([1.5, 1, 1.5])
-with col_btn_center:
-    show_data = st.button("데이터 추출")
-
-st.markdown("###")
-
-
-# ==========================================
-# [데이터 추출 액션 시작]
-# ==========================================
-if show_data:
-    st.session_state['api_error_msg'] = ""
-    
-    with st.spinner("네이버 광고 서버로부터 원시 데이터를 정합 수집 중입니다..."):
-        # 1. 일별 상세 지표 로드
-        if is_test_mode:
-            raw_df = get_mock_daily_stats(selected_adg_id, start_date, end_date)
+    if not campaign_list:
+        if st.session_state.get('api_error_msg'):
+            st.error(f"❌ 데이터 추출 과정에서 아래와 같은 원인으로 실패했습니다:\n\n{st.session_state['api_error_msg']}")
+            st.session_state['api_error_msg'] = ""  # 리셋
         else:
-            raw_df = fetch_daily_stats(
+            st.warning("선택하신 유형에 부합하는 캠페인이 확인되지 않습니다.")
+        st.stop()
+
+    camp_options = {c['nccCampaignId']: c['name'] for c in campaign_list}
+    selected_camp_id = st.selectbox("캠페인", options=list(camp_options.keys()), format_func=lambda x: camp_options[x])
+
+    if is_test_mode:
+        adgroup_list = get_mock_adgroups(selected_camp_id)
+    else:
+        adgroup_list = fetch_adgroups(
+            input_customer_id, 
+            input_api_key, 
+            input_secret_key, 
+            selected_camp_id
+        )
+
+    if not adgroup_list:
+        if st.session_state.get('api_error_msg'):
+            st.error(f"❌ 데이터 추출 과정에서 아래와 같은 원인으로 실패했습니다:\n\n{st.session_state['api_error_msg']}")
+            st.session_state['api_error_msg'] = ""
+        else:
+            st.warning("지정된 캠페인 하위에 개설된 광고그룹이 존재하지 않습니다.")
+        st.stop()
+
+    adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
+    selected_adg_id = st.selectbox("상세 광고그룹", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
+
+    # '평균 광고 노출 입찰가' 가이드 연동
+    if selected_ad_type == '플레이스광고':
+        avg_bid_val = None
+        if not is_test_mode:
+            avg_bid_val = fetch_place_avg_bid(
                 input_customer_id, 
                 input_api_key, 
                 input_secret_key, 
-                selected_adg_id, 
-                start_date, 
-                end_date
+                selected_adg_id
             )
+        else:
+            avg_bid_val = 1460
             
-        # 2. 키워드별 성과 지표 로드 (플레이스광고 아닐 시에만 후행 호출)
-        kw_df = None
-        if selected_ad_type != '플레이스광고':
+        if avg_bid_val is not None:
+            st.info(f"💡 **같은 지역 동종 업종 광고들의 평균 광고 노출 입찰가 참고하기 도움말**\n\n"
+                    f"**평균 광고 노출 입찰가 : {avg_bid_val:,}**")
+
+    st.markdown("---")
+
+    # 추출 단축 중앙 배열 적용
+    col_btn_left, col_btn_center, col_btn_right = st.columns([1.5, 1, 1.5])
+    with col_btn_center:
+        show_data = st.button("데이터 추출")
+
+    st.markdown("###")
+
+    # ==========================================
+    # [데이터 추출 액션 시작]
+    # ==========================================
+    if show_data:
+        st.session_state['api_error_msg'] = ""
+        
+        with st.spinner("네이버 광고 서버로부터 원시 데이터를 정합 수집 중입니다..."):
+            # 1. 일별 상세 지표 로드
             if is_test_mode:
-                kw_df = get_mock_keyword_stats(selected_adg_id, selected_ad_type, start_date, end_date)
+                raw_df = get_mock_daily_stats(selected_adg_id, start_date, end_date)
             else:
-                kw_df = fetch_keyword_stats(
+                raw_df = fetch_daily_stats(
                     input_customer_id, 
                     input_api_key, 
                     input_secret_key, 
                     selected_adg_id, 
                     start_date, 
-                    end_date, 
-                    selected_ad_type
+                    end_date
                 )
                 
-    if st.session_state.get('api_error_msg'):
-        st.error(f"❌ 광고 데이터를 수집하는 과정에서 에러가 감지되었습니다. 원인을 점검해 주세요:\n\n{st.session_state['api_error_msg']}")
-        st.session_state['api_error_msg'] = ""  # 리셋
-        st.stop()
-        
-    # 일별 데이터 표출 시작
-    if raw_df is not None and not raw_df.empty:
-        total_imp = raw_df["노출수"].sum()
-        total_clk = raw_df["클릭수"].sum()
-        total_cost = raw_df["총비용"].sum()
-        
-        total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
-        total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
-        
-        summary_df = pd.DataFrame([{
-            "총 노출수": total_imp,
-            "총 클릭수": total_clk,
-            "평균 클릭률(%)": total_ctr,
-            "평균 CPC": total_cpc,
-            "총비용 합계": total_cost
-        }])
-        
-        date_df = raw_df[["날짜"]].copy()
-        imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
-        cpc_df = raw_df[["평균 CPC"]].copy()
-        cost_df = raw_df[["총비용"]].copy()
-        
-        # 주간 총 합계표 부분은 우측 복사하기 버튼이 나타나지 않도록 처리합니다 (show_copy_btn=False)
-        render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True, show_copy_btn=False)
-        
-        st.markdown("###") # 레이아웃 여백 보정
-        
-        # 가로 격자 상단에 단 하나의 대제목만 정적 마킹합니다.
-        st.markdown("#### 📊 일별 데이터")
-        
-        # 1:1.2:1.2:1.2 비율 구성
-        col_date, col1, col2, col3 = st.columns([1, 1.2, 1.2, 1.2])
-        
-        # (1) 날짜 표 - 버튼 불필요하므로 convert_df_to_html_grid 후 components.html 로만 렌더링
-        with col_date:
-            date_html = convert_df_to_html_grid(date_df, is_summary_table=False)
-            wrapped_date_html = f"""
-            <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
-                {date_html}
-            </div>
-            """
-            iframe_height = get_table_iframe_height(date_df, is_summary=False)
-            st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=False)
+            # 2. 키워드별 성과 지표 로드 (플레이스광고 아닐 시에만 후행 호출)
+            kw_df = None
+            if selected_ad_type != '플레이스광고':
+                if is_test_mode:
+                    kw_df = get_mock_keyword_stats(selected_adg_id, selected_ad_type, start_date, end_date)
+                else:
+                    kw_df = fetch_keyword_stats(
+                        input_customer_id, 
+                        input_api_key, 
+                        input_secret_key, 
+                        selected_adg_id, 
+                        start_date, 
+                        end_date, 
+                        selected_ad_type
+                    )
+                    
+        if st.session_state.get('api_error_msg'):
+            st.error(f"❌ 광고 데이터를 수집하는 과정에서 에러가 감지되었습니다. 원인을 점검해 주세요:\n\n{st.session_state['api_error_msg']}")
+            st.session_state['api_error_msg'] = ""  # 리셋
+            st.stop()
             
-        # (2) 노출수, 클릭수 표 - 빈 값("")을 주어 타이틀 없이 수치와 복사 단추만 콤팩트하게 출력
-        with col1:
-            render_table_with_copy_btn(imp_clk_df, "", is_summary_table=False)
+        # 일별 데이터 표출 시작
+        if raw_df is not None and not raw_df.empty:
+            total_imp = raw_df["노출수"].sum()
+            total_clk = raw_df["클릭수"].sum()
+            total_cost = raw_df["총비용"].sum()
             
-        # (3) 평균 CPC 표
-        with col2:
-            render_table_with_copy_btn(cpc_df, "", is_summary_table=False)
+            total_ctr = round((total_clk / total_imp) * 100, 2) if total_imp > 0 else 0.0
+            total_cpc = int(total_cost / total_clk) if total_clk > 0 else 0
             
-        # (4) 총비용 표
-        with col3:
-            render_table_with_copy_btn(cost_df, "", is_summary_table=False)
+            summary_df = pd.DataFrame([{
+                "총 노출수": total_imp,
+                "총 클릭수": total_clk,
+                "평균 클릭률(%)": total_ctr,
+                "평균 CPC": total_cpc,
+                "총비용 합계": total_cost
+            }])
             
-        # 플레이스광고가 아닐 때 2단계 영역(키워드 성과 리포트)도 아래에 연쇄 출력합니다.
-        if selected_ad_type != '플레이스광고' and kw_df is not None and not kw_df.empty:
-            st.markdown("---")
-            render_table_with_copy_btn(kw_df, "📊 키워드별 검색어 성과 (클릭수 상위 10개)", is_summary_table=False)
+            date_df = raw_df[["날짜"]].copy()
+            imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
+            cpc_df = raw_df[["평균 CPC"]].copy()
+            cost_df = raw_df[["총비용"]].copy()
             
-        st.success("조회가 완료되었습니다!")
-    else:
-        st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
+            # 주간 총 합계표 부분은 우측 복사하기 버튼이 나타나지 않도록 처리합니다 (show_copy_btn=False)
+            render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True, show_copy_btn=False)
+            
+            st.markdown("###") # 레이아웃 여백 보정
+            
+            # 가로 격자 상단에 단 하나의 대제목만 정적 마킹합니다.
+            st.markdown("#### 📊 일별 데이터")
+            
+            # 1:1.2:1.2:1.2 비율 구성
+            col_date, col1, col2, col3 = st.columns([1, 1.2, 1.2, 1.2])
+            
+            # (1) 날짜 표 - 버튼 불필요하므로 convert_df_to_html_grid 후 components.html 로만 렌더링
+            with col_date:
+                date_html = convert_df_to_html_grid(date_df, is_summary_table=False)
+                wrapped_date_html = f"""
+                <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
+                    {date_html}
+                </div>
+                """
+                iframe_height = get_table_iframe_height(date_df, is_summary=False)
+                st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=False)
+                
+            # (2) 노출수, 클릭수 표 - 빈 값("")을 주어 타이틀 없이 수치와 복사 단추만 콤팩트하게 출력
+            with col1:
+                render_table_with_copy_btn(imp_clk_df, "", is_summary_table=False)
+                
+            # (3) 평균 CPC 표
+            with col2:
+                render_table_with_copy_btn(cpc_df, "", is_summary_table=False)
+                
+            # (4) 총비용 표
+            with col3:
+                render_table_with_copy_btn(cost_df, "", is_summary_table=False)
+                
+            # 플레이스광고가 아닐 때 2단계 영역(키워드 성과 리포트)도 아래에 연쇄 출력합니다.
+            if selected_ad_type != '플레이스광고' and kw_df is not None and not kw_df.empty:
+                st.markdown("---")
+                render_table_with_copy_btn(kw_df, "📊 키워드별 검색어 성과 (클릭수 상위 10개)", is_summary_table=False)
+                
+            st.success("조회가 완료되었습니다!")
+        else:
+            st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
+
+
+# ==========================================
+# [앱 분기 2] 키워드 관리 모듈 플레이스홀더
+# ==========================================
+elif selected_menu == "키워드 관리":
+    st.subheader("🔑 키워드 관리")
+    st.info("💡 키워드 관리 서비스 준비 중입니다. 핵심 추천 키워드 및 제외 키워드 분석 도구가 탑재될 예정입니다.")
+
+
+# ==========================================
+# [앱 분기 3] 추가 확장 모듈 플레이스홀더
+# ==========================================
+else:
+    st.subheader("🧩 추가 확장 서비스")
+    st.info("💡 추가 위클리 자동화 리포트 및 지표 통합 확장판이 설계될 예정입니다.")
