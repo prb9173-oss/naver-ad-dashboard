@@ -22,9 +22,22 @@ st.markdown("""
         background-color: #F8F9FA !important;
         border-right: 1px solid #E0E0E0 !important;
     }
+    
+    /* [개선 1] 전역 블랙 지정을 유지하되, Streamlit의 알림/성공/에러 메시지창은 예외로 처리합니다. */
     p, span, label, h1, h2, h3, h4, h5, h6, li, strong, th, td {
         color: #000000 !important;
     }
+    
+    /* 알림창(st.success, st.error, st.warning, st.info) 내부 텍스트 및 아이콘은 고유 테마 색상을 유지하도록 강제 복원 */
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span,
+    div[data-testid="stAlert"] div,
+    div[data-testid="stAlert"] li,
+    div[data-testid="stAlert"] svg,
+    .stAlert p, .stAlert span, .stAlert div {
+        color: inherit !important;
+    }
+    
     .stMarkdown, [data-testid="stWidgetLabel"] p, .stCaptionContainer p {
         color: #000000 !important;
         font-weight: 500;
@@ -33,7 +46,9 @@ st.markdown("""
         color: #000000 !important;
         font-weight: 700 !important;
     }
-    div[data-baseweb="select"] > div {
+    
+    /* [개선 2] 셀렉트 박스 스타일을 안전한 Streamlit 상위 클래스(.stSelectbox) 하위로 스코핑하여 오작동 방지 */
+    .stSelectbox div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         color: #000000 !important;
         border: 1px solid #CCCCCC !important;
@@ -53,11 +68,11 @@ st.markdown("""
     }
     
     /* 날짜 선택 인풋 박스 배경 흰색, 글자색 검정 고정 */
-    div[data-testid="stDateInput"] div {
+    .stDateInput div[data-testid="stDateInput"] div {
         background-color: #FFFFFF !important;
         color: #000000 !important;
     }
-    div[data-testid="stDateInput"] input {
+    .stDateInput div[data-testid="stDateInput"] input {
         background-color: #FFFFFF !important;
         color: #000000 !important;
     }
