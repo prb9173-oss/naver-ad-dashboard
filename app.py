@@ -8,13 +8,13 @@ import requests
 import pandas as pd
 
 # ==========================================
-# 💡 [Streamlit 기본 구성 설정]
+# 💡 [다크모드 원천 방어 및 신뢰성 딥 네이비 테마 고정]
 # ==========================================
 st.set_page_config(page_title="광고 데이터 추출기", layout="wide")
 
-# 최소한의 안전한 UI 보정 스타일링 (Streamlit 내부 위젯을 강제 오버라이드하는 brittle 코드는 제거)
 st.markdown("""
     <style>
+    /* 하단 연동부에서 로직 에러가 나더라도 브라우저 배경이 다크 모드로 반전되지 않도록 최상단에서 화이트를 고정합니다. */
     .stApp {
         background-color: #FFFFFF !important;
     }
@@ -22,29 +22,92 @@ st.markdown("""
         background-color: #F8F9FA !important;
         border-right: 1px solid #E0E0E0 !important;
     }
-    p, span, label, h1, h2, h3, h4, h5, h6, li, strong {
+    p, span, label, h1, h2, h3, h4, h5, h6, li, strong, th, td {
         color: #000000 !important;
     }
-    /* 데이터 추출 버튼 스타일 고정 */
+    .stMarkdown, [data-testid="stWidgetLabel"] p, .stCaptionContainer p {
+        color: #000000 !important;
+        font-weight: 500;
+    }
+    .stTextInput label p, .stSelectbox label p, .stDateInput label p, [data-testid="stSidebar"] label p {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        border: 1px solid #CCCCCC !important;
+    }
+    div[data-baseweb="popover"] {
+        background-color: #FFFFFF !important;
+    }
+    div[role="listbox"] div, li[role="option"] {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    
+    /* 차분하고 이성적인 연스카이 그레이 블루 톤으로 드롭다운 호버 하이라이트 지정 */
+    li[role="option"]:hover, div[role="option"]:hover {
+        background-color: #EBF4FA !important;
+        color: #000000 !important;
+    }
+    
+    /* 날짜 선택 인풋 박스 배경 흰색, 글자색 검정 고정 */
+    div[data-testid="stDateInput"] div {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    div[data-testid="stDateInput"] input {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    
+    /* 💡 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 텍스트 줄바꿈 방지 및 자동 너비 수립 */
     div.stButton > button {
-        background-color: #0A2540 !important;
-        border: none !important;
+        background-color: #0A2540 !important; /* 신뢰감 있는 딥 네이비 배경 */
+        border: none !important; /* 외곽 테두리 선 완전 제거 */
         border-radius: 6px !important;
         padding: 0.8rem 2.5rem !important;
         font-size: 15px !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
+        letter-spacing: 0.5px !important;
         transition: all 0.3s ease;
+        width: auto !important; /* 가로 크기 자동 맞춤 */
+        white-space: nowrap !important; /* 위아래 여러 줄 줄바꿈 절대 방지 */
         display: block !important;
-        margin: 0 auto !important;
-        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important;
+        margin: 0 auto !important; /* 정중앙 정렬 */
+        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important; /* 입체 보정 효과 */
     }
     div.stButton > button:hover {
-        background-color: #1A365D !important;
+        background-color: #1A365D !important; /* 오버 시 한 단계 부드러운 네이비 */
+        border: none !important;
     }
+    
+    /* 전역 p 태그 간섭에 의한 색상 덮어쓰기를 원천 방어하도록 명확한 자식 선택자 수립 */
     div.stButton > button p {
+        color: #FFFFFF !important; /* 글자색 완전한 흰색 보장 */
+        font-weight: 900 !important; /* 가장 두꺼운 강도의 굵은 볼드체 유지 */
+    }
+    div.stButton > button:hover p {
         color: #FFFFFF !important;
-        font-weight: 700 !important;
+    }
+    
+    /* 사이드바 열고 닫는 단추(화살표 기호) 항상 보이도록 명도대비 고정 패치 */
+    button[data-testid="stSidebarCollapse"] {
+        background-color: #FAFAFA !important;
+        border: 1px solid #D0D0D0 !important;
+        color: #000000 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    button[data-testid="stSidebarCollapse"] svg {
+        fill: #000000 !important;
+        color: #000000 !important;
+    }
+    button[data-testid="collapse-sidebar"] {
+        color: #000000 !important;
+    }
+    button[data-testid="collapse-sidebar"] svg {
+        fill: #000000 !important;
+        color: #000000 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -121,13 +184,11 @@ def convert_df_to_html_grid(df, is_summary_table=False):
 # ==========================================
 def dataframe_to_tsv_string(df):
     lines = []
-    # 엑셀 붙여넣기 시 가시성을 위해 헤더도 포함하여 복사되도록 개선
-    header_line = "\t".join(df.columns)
-    lines.append(header_line)
-    
     for _, row in df.iterrows():
         row_vals = []
         for col in df.columns:
+            if col == "날짜":
+                continue
             val = row[col]
             if isinstance(val, (int, float)):
                 if "클릭률" in col:
@@ -167,7 +228,7 @@ def render_table_and_button_html(df, title, is_summary_table=False):
             display: block !important;
             transition: all 0.2s;
         " onmouseover="this.style.backgroundColor='#1A365D'" onmouseout="this.style.backgroundColor='#0A2540'">
-            📋 전체 데이터 복사하기 (엑셀용)
+            📋 복사하기
         </button>
         <textarea id="area-{unique_id}" style="position:absolute; left:-9999px; width:1px; height:1px;">{tsv_text}</textarea>
     </div>
@@ -200,12 +261,12 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     
     function showCopied() {{
         var btn = document.getElementById('btn-{unique_id}');
-        btn.innerHTML = '✅ 복사 완료 (엑셀에 바로 붙여넣으세요)';
+        btn.innerHTML = '✅ 복사 완료';
         btn.style.backgroundColor = '#C8E6C9'; 
         btn.style.borderColor = '#4CAF50';
         btn.style.color = '#000000';
         setTimeout(function() {{
-            btn.innerHTML = '📋 전체 데이터 복사하기 (엑셀용)';
+            btn.innerHTML = '📋 복사하기';
             btn.style.backgroundColor = '#0A2540';
             btn.style.borderColor = 'none';
             btn.style.color = '#FFFFFF';
@@ -216,34 +277,35 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 표 규격에 따른 실시간 높이 계산 보정
-def get_table_iframe_height(df, is_summary=False, show_copy_btn=True):
+# 표 규격에 따른 실시간 높이 보정 수식 (복사버튼 유무에 맞춰 최적화)
+def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
-    base_height = 80 if show_copy_btn else 40
     if is_summary:
-        return 160  
+        return 220  
     else:
-        # 가로 스크롤바가 생기더라도 잘리지 않게 높이값 안전 설계
-        calc_height = 45 + (38 * row_count) + base_height
-        return max(calc_height, 180)
+        # 각 행 35px + 보조 마진 140px
+        calc_height = 40 + (35 * row_count) + 140
+        return max(calc_height, 160)
 
 
+# 요약합계표 복사 버튼 제거 및 잘림 현상 방지를 위해 최솟값 140px 보정 완료
 def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=True):
     if title:
         st.markdown(f"##### {title}")
         
     if show_copy_btn:
         html_content = render_table_and_button_html(df, title, is_summary_table)
-        iframe_height = get_table_iframe_height(df, is_summary_table, show_copy_btn=True)
+        iframe_height = get_table_iframe_height(df, is_summary_table)
         st.components.v1.html(html_content, height=iframe_height, scrolling=False)
     else:
+        # 가로 테두리/여백 영역이 한계에 부딪혀 잘리지 않도록 세로 면적을 최소 140px로 여유롭게 할당했습니다.
         table_html = convert_df_to_html_grid(df, is_summary_table)
         wrapped_html = f"""
         <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
             {table_html}
         </div>
         """
-        iframe_height = get_table_iframe_height(df, is_summary_table, show_copy_btn=False)
+        iframe_height = max(36 + (32 * len(df)) + 40, 140)
         st.components.v1.html(wrapped_html, height=iframe_height, scrolling=False)
 
 
@@ -303,11 +365,14 @@ def get_mock_keyword_stats(adgroup_id, ad_type, start_date, end_date):
     random.seed(hash(adgroup_id))
     
     if ad_type == '플레이스광고':
-        keywords = ["강남역 맛집", "강남역 점심 추천", "역삼 근처 조용한 일식집", "강남 주차가능 맛집", "강남 스마트플레이스 예약"]
+        keywords = ["강남역 맛집", "강남역 점심 추천", "역삼 근처 조용한 일식집", "강남 주차가능 맛집", "강남 스마트플레이스 예약", 
+                    "강남 핫플레이스 추천", "모임하기 좋은 일식당", "강남 가성비 횟집", "강남역 데이트 코스"]
     else:
-        keywords = ["마케팅 대행사", "데이터 분석", "광고 가이드", "보고서 엑셀", "스마트스토어 홍보"]
+        keywords = ["마케팅 대행사", "데이터 분석", "광고 가이드", "보고서 엑셀", "스마트스토어 홍보", 
+                    "주간 성과표", "블로그마케팅", "지역 소상공인 광고", "인하우스 마케터"]
     
-    selected_kws = random.sample(keywords, min(len(keywords), 5))
+    selected_kws = random.sample(keywords, min(len(keywords), 10))
+    
     selected_days = (end_date - start_date).days + 1
     scale_factor = selected_days / 28.0
     
@@ -322,7 +387,7 @@ def get_mock_keyword_stats(adgroup_id, ad_type, start_date, end_date):
             "클릭수": int(base_clk * scale_factor)
         })
     df = pd.DataFrame(rows)
-    df = df.sort_values(by="클릭수", ascending=False).reset_index(drop=True)
+    df = df.sort_values(by="클릭수", ascending=False).head(10).reset_index(drop=True)
     return df
 
 
@@ -408,16 +473,15 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
     data_rows = []
     
     if 'data' in stats_json:
-        # 안전장치 고도화: API가 응답한 리스트 크기를 사전에 체크하여 인덱스 에러 방지
+        # 안전성 강화: API 응답 배열 크기와 조회 날짜 간의 매핑 정합성 검증 추가
         data_len = len(stats_json['data'])
         expected_days = (end_date - start_date).days + 1
         
         for i, stat in enumerate(stats_json['data']):
-            # API가 반환한 개수가 조회기간 날짜 수와 불일치할 경우 대비
             if i < expected_days:
                 dt = (start_date + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
             else:
-                dt = "계산 불가 날짜"
+                dt = "계산불가"
                 
             imp = int(stat.get('impCnt', 0))
             clk = int(stat.get('clkCnt', 0))
@@ -433,13 +497,13 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
                 "평균 CPC": cpc,
                 "총비용": cost
             })
-            
     if data_rows:
         return pd.DataFrame(data_rows)
     return None
 
 def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date, ad_type):
     BASE_URL = "https://api.searchad.naver.com"
+    
     formatted_start = start_date.strftime("%Y-%m-%d")
     formatted_end = end_date.strftime("%Y-%m-%d")
     
@@ -476,6 +540,7 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
                 })
         if data_rows:
             df = pd.DataFrame(data_rows)
+            
             selected_days = (end_date - start_date).days + 1
             if selected_days != 28:
                 scale_coeff = selected_days / 28.0
@@ -554,6 +619,7 @@ except Exception:
 
 options_list = ["광고 ID 선택"] + available_accounts
 
+# 콜백 핸들러 정의
 def update_inputs_from_profile():
     prof = st.session_state.get('selected_profile')
     if prof == "광고 ID 선택" or not prof:
@@ -589,12 +655,15 @@ input_secret_key = st.session_state.get('input_secret_key', '')
 # ==========================================
 st.subheader("광고 데이터 추출기")
 
+# 계정 선택 가이드 노출
 if selected_profile == "광고 ID 선택" or not selected_profile:
     st.info("👈 왼쪽 사이드바에서 조회 및 제어할 광고 ID(계정)를 먼저 선택해 주세요.")
     st.stop()
 
+# 가상 모드 작동 여부 결정
 is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
 
+# 조회 범위 입력 상자
 col_date1, col_date2 = st.columns(2)
 with col_date1:
     start_date = st.date_input("조회 시작일", value=last_monday)
@@ -602,6 +671,7 @@ with col_date2:
     end_date = st.date_input("조회 종료일", value=last_sunday)
 
 st.markdown("### 광고 유형")
+
 selected_ad_type = st.selectbox(
     "광고그룹", 
     ['플레이스광고', '파워링크광고', '파워컨텐츠광고'],
@@ -626,6 +696,7 @@ if not campaign_list:
         st.warning("선택하신 유형에 부합하는 캠페인이 확인되지 않습니다.")
     st.stop()
 
+# '캠페인' 라벨 명시 및 복원
 camp_options = {c['nccCampaignId']: c['name'] for c in campaign_list}
 selected_camp_id = st.selectbox("캠페인", options=list(camp_options.keys()), format_func=lambda x: camp_options[x])
 
@@ -647,10 +718,12 @@ if not adgroup_list:
         st.warning("지정된 캠페인 하위에 개설된 광고그룹이 존재하지 않습니다.")
     st.stop()
 
+# '상세 광고그룹' 라벨 명시 및 복원
 adg_options = {g['nccAdgroupId']: g['name'] for g in adgroup_list}
 selected_adg_id = st.selectbox("상세 광고그룹", options=list(adg_options.keys()), format_func=lambda x: adg_options[x])
 
 
+# '평균 광고 노출 입찰가' 가이드 연동
 if selected_ad_type == '플레이스광고':
     avg_bid_val = None
     if not is_test_mode:
@@ -669,6 +742,7 @@ if selected_ad_type == '플레이스광고':
 
 st.markdown("---")
 
+# 데이터 추출 버튼을 가로로 확장하고 중앙에 정렬하기 위해 분할 컴포넌트를 사용합니다.
 col_btn_left, col_btn_center, col_btn_right = st.columns([1.5, 1, 1.5])
 with col_btn_center:
     show_data = st.button("데이터 추출")
@@ -696,7 +770,7 @@ if show_data:
                 end_date
             )
             
-        # 2. 키워드별 성과 지표 로드
+        # 2. 키워드별 성과 지표 로드 (플레이스광고 아닐 시에만 후행 호출)
         kw_df = None
         if selected_ad_type != '플레이스광고':
             if is_test_mode:
@@ -717,6 +791,7 @@ if show_data:
         st.session_state['api_error_msg'] = ""  
         st.stop()
         
+    # 일별 데이터 표출 시작
     if raw_df is not None and not raw_df.empty:
         total_imp = raw_df["노출수"].sum()
         total_clk = raw_df["클릭수"].sum()
@@ -733,19 +808,50 @@ if show_data:
             "총비용 합계": total_cost
         }])
         
-        # 주간 총 합계표는 오동작을 최소화하기 위해 복사 버튼 없이 데이터 카드로서만 기능하도록 안전 세팅
+        # 날짜 제외 복사 기능을 위한 지표별 개별 슬라이싱 데이터 프레임셋 분리
+        date_df = raw_df[["날짜"]].copy()
+        imp_clk_df = raw_df[["노출수", "클릭수"]].copy()
+        cpc_df = raw_df[["평균 CPC"]].copy()
+        cost_df = raw_df[["총비용"]].copy()
+        
+        # 주간 총 합계표 부분은 우측 복사하기 버튼이 나타나지 않도록 처리합니다 (show_copy_btn=False)
         render_table_with_copy_btn(summary_df, "🏆 주간 총 합계표", is_summary_table=True, show_copy_btn=False)
         
-        st.markdown("###") 
+        st.markdown("###") # 레이아웃 여백 보정
         
-        # 💡 [핵심 개선] 다수의 열로 분할되어 렌더링되던 일별 지표를 단 하나의 완성된 통합 데이터 그리드로 출력
-        # 날짜와 실적 데이터가 가로선 기준으로 어긋나지 않으며, '복사하기' 버튼 클릭 시 전체 테이블 구조가 온전하게 엑셀 형식으로 복사됩니다.
-        render_table_with_copy_btn(raw_df, "📊 일별 데이터 실적 상세", is_summary_table=False, show_copy_btn=True)
+        # 가로 격자 상단에 단 하나의 대제목만 정적 마킹합니다.
+        st.markdown("#### 📊 일별 데이터")
+        
+        # 1:1.2:1.2:1.2 비율 구성 (엑셀 템플릿 복사용 고유 열분할 뷰 유지)
+        col_date, col1, col2, col3 = st.columns([1, 1.2, 1.2, 1.2])
+        
+        # (1) 날짜 표 - 버튼 불필요하므로 convert_df_to_html_grid 후 components.html 로만 렌더링
+        with col_date:
+            date_html = convert_df_to_html_grid(date_df, is_summary_table=False)
+            wrapped_date_html = f"""
+            <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
+                {date_html}
+            </div>
+            """
+            iframe_height = get_table_iframe_height(date_df, is_summary=False)
+            st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=False)
             
-        # 플레이스광고가 아닐 때 키워드 성과 리포트 연쇄 출력
+        # (2) 노출수, 클릭수 표 - 빈 값("")을 주어 타이틀 없이 수치와 복사 단추만 콤팩트하게 출력
+        with col1:
+            render_table_with_copy_btn(imp_clk_df, "", is_summary_table=False)
+            
+        # (3) 평균 CPC 표
+        with col2:
+            render_table_with_copy_btn(cpc_df, "", is_summary_table=False)
+            
+        # (4) 총비용 표
+        with col3:
+            render_table_with_copy_btn(cost_df, "", is_summary_table=False)
+            
+        # 플레이스광고가 아닐 때 2단계 영역(키워드 성과 리포트)도 아래에 연쇄 출력합니다.
         if selected_ad_type != '플레이스광고' and kw_df is not None and not kw_df.empty:
             st.markdown("---")
-            render_table_with_copy_btn(kw_df, "📊 키워드별 검색어 성과 (클릭수 상위)", is_summary_table=False, show_copy_btn=True)
+            render_table_with_copy_btn(kw_df, "📊 키워드별 검색어 성과 (클릭수 상위 10개)", is_summary_table=False)
             
         st.success("조회가 완료되었습니다!")
     else:
