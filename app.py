@@ -8,7 +8,7 @@ import requests
 import pandas as pd
 
 # ==========================================
-# [다크모드 원천 방어 및 고대비 텍스트 테마 고정]
+# [다크모드 원천 방어 및 신뢰성 딥 네이비 테마 고정]
 # ==========================================
 st.set_page_config(page_title="광고 데이터 추출기", layout="wide")
 
@@ -45,8 +45,10 @@ st.markdown("""
         background-color: #FFFFFF !important;
         color: #000000 !important;
     }
+    
+    /* 💡 [피드백 반영] 이성적이고 차분한 그레이 블루 톤으로 드롭다운 호버 하이라이트 색상 매핑 */
     li[role="option"]:hover, div[role="option"]:hover {
-        background-color: #EBF8FF !important;
+        background-color: #EBF4FA !important;
         color: #000000 !important;
     }
     
@@ -60,27 +62,30 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* 💡 [피드백 적극 반영] 데이터 추출 버튼 외곽선 완전 제거, 블루 계열 내부 채우기, 텍스트 흰색 볼드 고정 */
+    /* 💡 [피드백 적극 반영] 데이터 추출 버튼 외곽선 제거, 딥 네이비(#0A2540) 채우기, 완전 흰색(#FFFFFF) 아주 두꺼운 볼드 처리 */
     div.stButton > button {
-        background-color: #2B6CB0 !important; /* 신뢰감 있는 블루 채우기 */
-        color: #FFFFFF !important; /* 글자색 완전 흰색 */
+        background-color: #0A2540 !important; /* 신뢰감 있는 딥 네이비 배경 */
+        color: #FFFFFF !important; /* 텍스트 완전한 흰색 */
         border: none !important; /* 외곽 테두리 선 완전 제거 */
         border-radius: 6px !important;
-        padding: 0.8rem 2.0rem !important;
+        padding: 0.8rem 2.5rem !important;
         font-size: 15px !important;
-        font-weight: 900 !important; /* 굵기 최상위 등급 볼드 */
+        font-weight: 900 !important; /* 최고 강도의 볼드 두께 지정 */
         letter-spacing: 0.5px !important;
         transition: all 0.3s ease;
-        width: 100%;
-        box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2) !important; /* 입체 보정 효과 */
+        width: auto !important; /* 가로 크기 자동 맞춤 */
+        white-space: nowrap !important; /* 위아래 여러 줄 줄바꿈 절대 방지 */
+        display: block !important;
+        margin: 0 auto !important; /* 정중앙 정렬 */
+        box-shadow: 0 4px 6px rgba(10, 37, 64, 0.15) !important; /* 입체 보정 효과 */
     }
     div.stButton > button:hover {
-        background-color: #3182CE !important; /* 마우스 오버 시 한 단계 부드러운 블루 */
+        background-color: #1A365D !important; /* 오버 시 조금 더 밝은 네이비 */
         color: #FFFFFF !important;
         border: none !important;
     }
     
-    /* 💡 [피드백 적극 반영] 사이드바 열고 닫는 단추(화살표 기호)가 다크 모드 간섭으로 인해 안 보이는 문제를 해결합니다. */
+    /* 사이드바 열고 닫는 단추(화살표 기호) 항상 보이도록 명도대비 고정 패치 */
     button[data-testid="stSidebarCollapse"] {
         background-color: #FAFAFA !important;
         border: 1px solid #D0D0D0 !important;
@@ -110,7 +115,7 @@ current_weekday = today.weekday()
 last_monday = today - datetime.timedelta(days=current_weekday + 7)
 last_sunday = last_monday + datetime.timedelta(days=6)
 
-# 오류 분석 로그 저장을 위한 세션 상태 세팅
+# 에러 로깅용 세션 세팅
 if 'api_error_msg' not in st.session_state:
     st.session_state['api_error_msg'] = ""
 
@@ -139,20 +144,20 @@ def get_header(method, uri, api_key, secret_key, customer_id):
 # [그리드 엔진] 브라우저 및 엑셀 드래그 복사용 표준 테이블 렌더러
 # ==========================================
 def convert_df_to_html_grid(df, is_summary_table=False):
-    # 💡 [피드백 적극 반영] 반응형 스케일링 중 텍스트가 2줄로 줄 바꿈 되어 표가 깨지지 않도록 white-space: nowrap을 원천 강제 주입합니다.
-    html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #D0C0A0; white-space:nowrap !important;">'
+    # 💡 [피드백 적극 반영] 테이블 테두리를 연노랑에서 차분한 그레이스톤(#CBD5E0)으로 통일합니다.
+    html = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif; text-align:center; margin-top:10px; color:#000000 !important; border:1px solid #CBD5E0; white-space:nowrap !important;">'
     
-    # 일반 표 성과 가독성이 훌륭했던 연노랑 포인트 컬러 헤더(#FFFDE7)로 완벽하게 롤백했습니다.
-    header_color = "#FFF9C4" if is_summary_table else "#FFFDE7"
+    # 💡 [피드백 적극 반영] 촌스러운 연노랑 배경을 모두 들어내고, 합계표는 세련된 파스텔 블루그레이(#D9E2EC), 일별 데이터는 파스텔 실버그레이(#EDF2F7)로 일관성 있게 세팅했습니다.
+    header_color = "#D9E2EC" if is_summary_table else "#EDF2F7"
     html += f'<thead><tr style="background-color:{header_color}; border-bottom:2px solid #CCCCCC; font-weight:bold; height:36px; white-space:nowrap !important;">'
     for col in df.columns:
-        html += f'<th style="padding:10px; border:1px solid #E0E0E0; color:#000000 !important; font-size:14px; white-space:nowrap !important;">{col}</th>'
+        html += f'<th style="padding:10px; border:1px solid #CBD5E0; color:#000000 !important; font-size:14px; white-space:nowrap !important;">{col}</th>'
     html += '</tr></thead><tbody>'
     
     for i, row in df.iterrows():
-        # 일반 표는 깔끔한 화이트 단색 톤으로 복귀합니다.
-        row_style = "background-color:#FFFDE7;" if is_summary_table else ""
-        html += f'<tr style="{row_style} border-bottom:1px solid #E5E5E5; height:32px; white-space:nowrap !important;">'
+        # 데이터 행의 배경색도 블루-그레이 테마에 맞추어 스카이블루 그레이(#F0F4F8) 및 완전화이트로 정립합니다.
+        row_style = "background-color:#F0F4F8;" if is_summary_table else "background-color:#FFFFFF;"
+        html += f'<tr style="{row_style} border-bottom:1px solid #E2E8F0; height:32px; white-space:nowrap !important;">'
         
         for col in df.columns:
             val = row[col]
@@ -164,7 +169,7 @@ def convert_df_to_html_grid(df, is_summary_table=False):
             else:
                 formatted_val = str(val)
                 
-            html += f'<td style="padding:8px; border:1px solid #E0E0E0; color:#000000 !important; font-size:13px; white-space:nowrap !important;">{formatted_val}</td>'
+            html += f'<td style="padding:8px; border:1px solid #CBD5E0; color:#000000 !important; font-size:13px; white-space:nowrap !important;">{formatted_val}</td>'
         html += '</tr>'
         
     html += '</tbody></table>'
@@ -194,20 +199,20 @@ def dataframe_to_tsv_string(df):
     return "\n".join(lines)
 
 
-# [컴포넌트] 신뢰형 인디고 블루 복사 버튼 템플릿 제어 모듈
+# [컴포넌트] 신뢰형 딥 네이비 복사 버튼 템플릿 제어 모듈
 def render_table_and_button_html(df, title, is_summary_table=False):
     table_html = convert_df_to_html_grid(df, is_summary_table)
     tsv_text = dataframe_to_tsv_string(df)
     
     unique_id = str(int(time.time() * 1000)) + str(abs(hash(title)))
     
-    # 복사단추 역시 버튼 외곽 테두리를 없애고 블루계열 채우기와 고대비 텍스트로 보완했습니다.
+    # 💡 [피드백 적극 반영] 복사단추의 명도 대비를 완전히 개선하여 보완했습니다. (딥 네이비 #0A2540 배경 및 화이트 텍스트)
     html_code = f"""
     <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
         {table_html}
         <button id="btn-{unique_id}" onclick="copyText()" style="
-            background-color: #EBF8FF !important;
-            color: #2B6CB0 !important;
+            background-color: #0A2540 !important;
+            color: #FFFFFF !important;
             border: none !important;
             border-radius: 6px !important;
             padding: 10px 16px !important;
@@ -216,11 +221,11 @@ def render_table_and_button_html(df, title, is_summary_table=False):
             cursor: pointer !important;
             width: 100% !important;
             margin-top: 10px !important;
-            box-shadow: 0 4px 6px rgba(43, 108, 176, 0.1) !important;
+            box-shadow: 0 4px 6px rgba(10,37,64,0.1) !important;
             text-align: center !important;
             display: block !important;
             transition: all 0.2s;
-        " onmouseover="this.style.backgroundColor='#BEE3F8'" onmouseout="this.style.backgroundColor='#EBF8FF'">
+        " onmouseover="this.style.backgroundColor='#1A365D'" onmouseout="this.style.backgroundColor='#0A2540'">
             📋 복사하기
         </button>
         <textarea id="area-{unique_id}" style="position:absolute; left:-9999px; width:1px; height:1px;">{tsv_text}</textarea>
@@ -260,8 +265,9 @@ def render_table_and_button_html(df, title, is_summary_table=False):
         btn.style.color = '#000000';
         setTimeout(function() {{
             btn.innerHTML = '📋 복사하기';
-            btn.style.backgroundColor = '#EBF8FF';
-            btn.style.borderColor = '#2B6CB0';
+            btn.style.backgroundColor = '#0A2540';
+            btn.style.borderColor = 'none';
+            btn.style.color = '#FFFFFF';
         }}, 2000);
     }}
     </script>
@@ -280,7 +286,7 @@ def get_table_iframe_height(df, is_summary=False):
         return max(calc_height, 160)
 
 
-# 💡 요약합계표 하단 잘림 문제를 완전히 해결하기 위해 오프셋을 상향(최소 140px) 튜닝했습니다.
+# 💡 요약합계표 복사 버튼 제거 및 잘림 현상 방지를 위해 최솟값 140px 보정 완료
 def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=True):
     if title:
         st.markdown(f"##### {title}")
@@ -290,7 +296,7 @@ def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=
         iframe_height = get_table_iframe_height(df, is_summary_table)
         st.components.v1.html(html_content, height=iframe_height, scrolling=False)
     else:
-        # 💡 [버그 복구 완료] 가로 테두리/여백 영역이 한계에 부딪혀 잘리지 않도록 세로 면적을 최소 140px로 여유롭게 할당했습니다.
+        # 💡 [피드백 적극 반영] 가로 테두리/여백 영역이 한계에 부딪혀 잘리지 않도록 세로 면적 최소치를 140px로 넉넉하게 보정합니다.
         table_html = convert_df_to_html_grid(df, is_summary_table)
         wrapped_html = f"""
         <div style="font-family:sans-serif; color:#000000 !important; background-color:#FFFFFF; padding:5px;">
@@ -464,6 +470,8 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
     stats_json = response.json()
     data_rows = []
     if 'data' in stats_json:
+        # 네이버 서버가 전달하는 날짜 필드의 결측 에러를 방지하기 위해 
+        # python의 enumerate를 통해 i 인덱스를 확보하고 시작일자로부터 1일씩 순회하며 독자적으로 날짜를 생성 및 바인딩합니다.
         for i, stat in enumerate(stats_json['data']):
             dt = (start_date + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
             
@@ -592,7 +600,6 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
 # ==========================================
 st.sidebar.markdown("### 📁 광고 계정 선택")
 
-# 💡 [피드백 반영] st.session_state 대신 st.secrets 에 정의된 유효 계정 세션을 실시간으로 안전하게 불러오도록 수정했습니다.
 available_accounts = []
 try:
     for k in st.secrets.keys():
@@ -652,13 +659,12 @@ if selected_profile == "광고 ID 선택" or not selected_profile:
 # 가상 모드 작동 여부 결정
 is_test_mode = ("mock" in str(input_customer_id).lower()) or (input_customer_id == "")
 
-# 조회 범위 입력 상자
+# 💡 [피드백 반영] 가로로 나열되는 선택 영역에 맞추기 위해, 날짜 조회 입력도 3분할 열과 유사하게 넓게 배치합니다.
+# 💡 [피드백 반영] 조회 시작일과 조회 종료일 날짜 선택 창 옆에 붙어있던 요일 정보를 완전히 소거했습니다.
 col_date1, col_date2 = st.columns(2)
 with col_date1:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
     start_date = st.date_input("조회 시작일", value=last_monday)
 with col_date2:
-    # 요일 정보를 기재 방식에서 완전히 소거했습니다.
     end_date = st.date_input("조회 종료일", value=last_sunday)
 
 # 대제목 이모지를 삭제하고 '광고 유형'으로 개편했습니다.
@@ -735,7 +741,7 @@ if selected_ad_type == '플레이스광고':
 
 st.markdown("---")
 
-# 💡 [피드백 적극 반영] 수직 광고그룹 설정부 하단 정중앙에 '데이터 추출' 단추를 크게 배치합니다.
+# 💡 [피드백 반영] 데이터 추출 버튼을 가로로 확장하고 중앙에 정렬하기 위해 분할 컴포넌트를 사용합니다.
 col_btn_left, col_btn_center, col_btn_right = st.columns([1.5, 1, 1.5])
 with col_btn_center:
     show_data = st.button("데이터 추출")
@@ -845,7 +851,6 @@ if show_data:
             st.markdown("---")
             render_table_with_copy_btn(kw_df, "📊 키워드별 검색어 성과 (클릭수 상위 10개)", is_summary_table=False)
             
-        # [성공 가이드 메시지 한 줄 노출]
         st.success("조회가 완료되었습니다!")
     else:
         st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
