@@ -1,5 +1,3 @@
---- START OF FILE app.py ---
-
 import streamlit as st
 import datetime
 import time
@@ -905,5 +903,3 @@ if show_data:
         st.success("조회가 완료되었습니다!")
     else:
         st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
-
---- END OF FILE app.py ---
