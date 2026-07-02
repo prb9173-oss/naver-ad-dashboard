@@ -39,7 +39,7 @@ st.markdown("""
         border: 1px solid #CCCCCC !important;
     }
     
-    /* 💡 [날짜 선택기 달력 팝오버 - 화이트 테마 강제 보정 스타일] */
+    /* 💡 [날짜 선택기 달력 팝오버 - 완벽한 화이트 테마 및 검은 상자 원천 방어 스타일] */
     div[data-baseweb="popover"] {
         background-color: #FFFFFF !important;
         box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15) !important;
@@ -48,42 +48,33 @@ st.markdown("""
     div[data-baseweb="calendar"] {
         background-color: #FFFFFF !important;
     }
-    /* 달력 헤더 (연도, 월 드롭다운 및 레이블 텍스트) */
-    div[data-baseweb="calendar"] header, 
-    div[data-baseweb="calendar"] p, 
-    div[data-baseweb="calendar"] span, 
-    div[data-baseweb="calendar"] label,
-    div[data-baseweb="calendar"] select {
+    /* 달력 내부의 모든 개별 하위 구성요소 배경을 투명하게 만들어 검은색 박스 노출을 차단합니다. */
+    div[data-baseweb="calendar"] * {
+        background-color: transparent !important;
         color: #000000 !important;
-        background-color: #FFFFFF !important;
     }
-    /* 연/월 이동용 좌우 화살표 아이콘 색상 */
+    /* 월/연도 선택 select 박스의 하얀색 배경 및 기본 테두리 유지 */
+    div[data-baseweb="calendar"] select {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E0E0E0 !important;
+        border-radius: 4px !important;
+    }
+    /* 마우스 호버 시 부드러운 회색 배경 효과 */
+    div[data-baseweb="calendar"] button:hover {
+        background-color: #F0F2F6 !important;
+    }
+    /* 💡 최종 선택된 날짜의 동그라미 하이라이트(빨간색/산호색) 배경색 원상 보존 */
+    div[data-baseweb="calendar"] button[aria-selected="true"] {
+        background-color: #FF4B4B !important;
+    }
+    div[data-baseweb="calendar"] button[aria-selected="true"] * {
+        background-color: #FF4B4B !important;
+        color: #FFFFFF !important;
+    }
+    /* 달력 이동 화살표 아이콘 및 UI 아이콘 검은색 강제 지정 */
     div[data-baseweb="calendar"] svg {
         fill: #000000 !important;
         color: #000000 !important;
-    }
-    /* 요일 이름 (Su, Mo, Tu 등) 및 날짜 텍스트 기본 검정색 처리 */
-    div[data-baseweb="calendar"] [role="gridcell"] div, 
-    div[data-baseweb="calendar"] [role="presentation"] div {
-        color: #000000 !important;
-    }
-    /* 날짜 숫자 버튼 기본 화이트 배경 제어 */
-    div[data-baseweb="calendar"] button {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-    }
-    /* 오늘 날짜 및 마우스 호버(hover) 상태 피드백 */
-    div[data-baseweb="calendar"] button:hover {
-        background-color: #F0F2F6 !important;
-        color: #000000 !important;
-    }
-    /* 최종 선택된 날짜 (동그란 선택 링) 강조색 - 가독성 향상을 위해 딥네이비 매치 */
-    div[data-baseweb="calendar"] button[aria-selected="true"] {
-        background-color: #0A2540 !important;
-        color: #FFFFFF !important;
-    }
-    div[data-baseweb="calendar"] button[aria-selected="true"] div {
-        color: #FFFFFF !important;
     }
     
     div[role="listbox"] div, li[role="option"] {
