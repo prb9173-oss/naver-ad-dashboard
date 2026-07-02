@@ -1,3 +1,5 @@
+--- START OF FILE app.py ---
+
 import streamlit as st
 import datetime
 import time
@@ -277,7 +279,7 @@ def render_table_and_button_html(df, title, is_summary_table=False):
     return html_code
 
 
-# 표 규격에 따른 실시간 높이 보정 수식 (복사버튼 유무에 맞춰 최적화)
+# 표 규격에 따른 실시간 높이 보정 수식 (복사버튼 유무에 맞춰 최적화 및 최대 높이 600px 제한)
 def get_table_iframe_height(df, is_summary=False):
     row_count = len(df)
     if is_summary:
@@ -285,7 +287,7 @@ def get_table_iframe_height(df, is_summary=False):
     else:
         # 각 행 35px + 보조 마진 140px
         calc_height = 40 + (35 * row_count) + 140
-        return max(calc_height, 160)
+        return min(max(calc_height, 160), 600)
 
 
 # 요약합계표 복사 버튼 제거 및 잘림 현상 방지를 위해 최솟값 140px 보정 완료
@@ -296,7 +298,8 @@ def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=
     if show_copy_btn:
         html_content = render_table_and_button_html(df, title, is_summary_table)
         iframe_height = get_table_iframe_height(df, is_summary_table)
-        st.components.v1.html(html_content, height=iframe_height, scrolling=False)
+        allow_scrolling = iframe_height >= 600
+        st.components.v1.html(html_content, height=iframe_height, scrolling=allow_scrolling)
     else:
         # 가로 테두리/여백 영역이 한계에 부딪혀 잘리지 않도록 세로 면적을 최소 140px로 여유롭게 할당했습니다.
         table_html = convert_df_to_html_grid(df, is_summary_table)
@@ -305,8 +308,10 @@ def render_table_with_copy_btn(df, title, is_summary_table=False, show_copy_btn=
             {table_html}
         </div>
         """
-        iframe_height = max(36 + (32 * len(df)) + 40, 140)
-        st.components.v1.html(wrapped_html, height=iframe_height, scrolling=False)
+        calc_height = 36 + (32 * len(df)) + 40
+        iframe_height = min(max(calc_height, 140), 600)
+        allow_scrolling = iframe_height >= 600
+        st.components.v1.html(wrapped_html, height=iframe_height, scrolling=allow_scrolling)
 
 
 # ==========================================
@@ -392,18 +397,24 @@ def get_mock_keyword_stats(adgroup_id, ad_type, start_date, end_date):
 
 
 # ==========================================
-# [네이버 API 통신 모듈]
+# [네이버 API 통신 캐싱 및 모듈 구조 설계]
+# Streamlit 세션 상태(session_state) 쓰기 오동작을 원천 방지하기 위해 
+# 순수 통신부만 안전하게 캐싱 처리한 뒤 메인 프레임워크와 결합합니다.
 # ==========================================
-def fetch_campaigns(customer_id, api_key, secret_key, ad_type):
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_campaigns_cached(customer_id, api_key, secret_key):
     BASE_URL = "https://api.searchad.naver.com"
     uri = "/ncc/campaigns"
     headers = get_header("GET", uri, api_key, secret_key, customer_id)
     response = requests.get(f"{BASE_URL}{uri}", headers=headers)
+    return response.status_code, response.text, response.json() if response.status_code == 200 else None
+
+def fetch_campaigns(customer_id, api_key, secret_key, ad_type):
+    status_code, res_text, campaigns = _fetch_campaigns_cached(customer_id, api_key, secret_key)
     
-    if response.status_code != 200:
-        st.session_state['api_error_msg'] = f"캠페인 데이터 연동 과정에서 통신 응답 오류가 발생했습니다. (HTTP {response.status_code}): {response.text}"
+    if status_code != 200:
+        st.session_state['api_error_msg'] = f"캠페인 데이터 연동 과정에서 통신 응답 오류가 발생했습니다. (HTTP {status_code}): {res_text}"
         return []
-    campaigns = response.json()
     
     type_mapping = {
         '파워링크광고': ['WEB_SITE'],
@@ -413,19 +424,27 @@ def fetch_campaigns(customer_id, api_key, secret_key, ad_type):
     target_types = type_mapping.get(ad_type, ['WEB_SITE'])
     return [c for c in campaigns if c.get('campaignTp') in target_types]
 
-def fetch_adgroups(customer_id, api_key, secret_key, campaign_id):
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_adgroups_cached(customer_id, api_key, secret_key, campaign_id):
     BASE_URL = "https://api.searchad.naver.com"
     uri = "/ncc/adgroups"
     params = {'nccCampaignId': campaign_id}
     headers = get_header("GET", uri, api_key, secret_key, customer_id)
     response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
-    
-    if response.status_code != 200:
-        st.session_state['api_error_msg'] = f"광고그룹 목록을 연동하는 데 실패했습니다. (HTTP {response.status_code}): {response.text}"
-        return []
-    return response.json()
+    return response.status_code, response.text, response.json() if response.status_code == 200 else None
 
-def fetch_place_avg_bid(customer_id, api_key, secret_key, adgroup_id):
+def fetch_adgroups(customer_id, api_key, secret_key, campaign_id):
+    status_code, res_text, data = _fetch_adgroups_cached(customer_id, api_key, secret_key, campaign_id)
+    
+    if status_code != 200:
+        st.session_state['api_error_msg'] = f"광고그룹 목록을 연동하는 데 실패했습니다. (HTTP {status_code}): {res_text}"
+        return []
+    return data
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_place_avg_bid_cached(customer_id, api_key, secret_key, adgroup_id):
     BASE_URL = "https://api.searchad.naver.com"
     uri = f"/ncc/adgroups/{adgroup_id}"
     headers = get_header("GET", uri, api_key, secret_key, customer_id)
@@ -449,7 +468,12 @@ def fetch_place_avg_bid(customer_id, api_key, secret_key, adgroup_id):
         pass
     return None
 
-def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date):
+def fetch_place_avg_bid(customer_id, api_key, secret_key, adgroup_id):
+    return _fetch_place_avg_bid_cached(customer_id, api_key, secret_key, adgroup_id)
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_daily_stats_cached(customer_id, api_key, secret_key, adgroup_id, start_date, end_date):
     BASE_URL = "https://api.searchad.naver.com"
     uri = "/stats"
     
@@ -464,15 +488,17 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
     }
     headers = get_header("GET", uri, api_key, secret_key, customer_id)
     response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
+    return response.status_code, response.text, response.json() if response.status_code == 200 else None
+
+def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date):
+    status_code, res_text, stats_json = _fetch_daily_stats_cached(customer_id, api_key, secret_key, adgroup_id, start_date, end_date)
     
-    if response.status_code != 200:
-        st.session_state['api_error_msg'] = f"일자별 세부 실적 통계를 가져오는 과정에서 오류가 발생했습니다. (HTTP {response.status_code}): {response.text}"
+    if status_code != 200:
+        st.session_state['api_error_msg'] = f"일자별 세부 실적 통계를 가져오는 과정에서 오류가 발생했습니다. (HTTP {status_code}): {res_text}"
         return None
         
-    stats_json = response.json()
     data_rows = []
-    
-    if 'data' in stats_json:
+    if stats_json and 'data' in stats_json:
         # 안전성 강화: API 응답 배열 크기와 조회 날짜 간의 매핑 정합성 검증 추가
         data_len = len(stats_json['data'])
         expected_days = (end_date - start_date).days + 1
@@ -501,32 +527,58 @@ def fetch_daily_stats(customer_id, api_key, secret_key, adgroup_id, start_date, 
         return pd.DataFrame(data_rows)
     return None
 
-def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date, ad_type):
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_keyword_stats_place_cached(customer_id, api_key, secret_key, adgroup_id):
     BASE_URL = "https://api.searchad.naver.com"
+    uri = "/stats"
+    params = {
+        'id': adgroup_id,
+        'statType': 'NPLA_SCH_KEYWORD'
+    }
+    headers = get_header("GET", uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
     
-    formatted_start = start_date.strftime("%Y-%m-%d")
-    formatted_end = end_date.strftime("%Y-%m-%d")
-    
-    if ad_type == '플레이스광고':
-        uri = "/stats"
-        params = {
-            'id': adgroup_id,
-            'statType': 'NPLA_SCH_KEYWORD'
-        }
-        headers = get_header("GET", uri, api_key, secret_key, customer_id)
+    if response.status_code != 200:
+        params.pop('timeRange', None)
         response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
         
-        if response.status_code != 200:
-            params.pop('timeRange', None)
-            response = requests.get(f"{BASE_URL}{uri}", params=params, headers=headers)
-            
-        if response.status_code != 200:
-            st.session_state['api_error_msg'] = f"플레이스 키워드 성과를 가져오는 과정에서 오류가 발생했습니다. (HTTP {response.status_code}): {response.text}"
+    return response.status_code, response.text, response.json() if response.status_code == 200 else None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_keyword_list_cached(customer_id, api_key, secret_key, adgroup_id):
+    BASE_URL = "https://api.searchad.naver.com"
+    kw_list_uri = "/ncc/keywords"
+    kw_params = {'nccAdgroupId': adgroup_id}
+    kw_headers = get_header("GET", kw_list_uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{kw_list_uri}", params=kw_params, headers=kw_headers)
+    return response.status_code, response.text, response.json() if response.status_code == 200 else None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_keyword_stats_chunk_cached(customer_id, api_key, secret_key, chunk_ids_tuple, formatted_start, formatted_end):
+    BASE_URL = "https://api.searchad.naver.com"
+    stats_uri = "/stats"
+    params = {
+        'ids': list(chunk_ids_tuple),
+        'fields': '["impCnt","clkCnt"]',
+        'timeRange': f'{{"since":"{formatted_start}","until":"{formatted_end}"}}'
+    }
+    headers = get_header("GET", stats_uri, api_key, secret_key, customer_id)
+    response = requests.get(f"{BASE_URL}{stats_uri}", params=params, headers=headers)
+    return response.status_code, response.json() if response.status_code == 200 else None
+
+
+def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date, end_date, ad_type):
+    if ad_type == '플레이스광고':
+        status_code, res_text, stats_json = _fetch_keyword_stats_place_cached(customer_id, api_key, secret_key, adgroup_id)
+        
+        if status_code != 200:
+            st.session_state['api_error_msg'] = f"플레이스 키워드 성과를 가져오는 과정에서 오류가 발생했습니다. (HTTP {status_code}): {res_text}"
             return None
             
-        stats_json = response.json()
         data_rows = []
-        
         items = stats_json if isinstance(stats_json, list) else stats_json.get('data', [])
         for item in items:
             kw = item.get('schKeyword') or item.get('keyword') or item.get('searchKeyword') or item.get('id')
@@ -552,38 +604,29 @@ def fetch_keyword_stats(customer_id, api_key, secret_key, adgroup_id, start_date
         return None
         
     else:
-        kw_list_uri = "/ncc/keywords"
-        kw_params = {'nccAdgroupId': adgroup_id}
-        kw_headers = get_header("GET", kw_list_uri, api_key, secret_key, customer_id)
-        kw_response = requests.get(f"{BASE_URL}{kw_list_uri}", params=kw_params, headers=kw_headers)
+        status_code, res_text, keywords = _fetch_keyword_list_cached(customer_id, api_key, secret_key, adgroup_id)
         
-        if kw_response.status_code != 200:
-            st.session_state['api_error_msg'] = f"광고 키워드 목록을 수집하는 데 실패했습니다. (HTTP {kw_response.status_code}): {kw_response.text}"
+        if status_code != 200:
+            st.session_state['api_error_msg'] = f"광고 키워드 목록을 수집하는 데 실패했습니다. (HTTP {status_code}): {res_text}"
             return None
             
-        keywords = kw_response.json()
         if not keywords:
             return None
             
         kw_ids = [k.get('nccKeywordId') for k in keywords]
         kw_map = {k.get('nccKeywordId'): k.get('keyword') for k in keywords}
         
-        stats_uri = "/stats"
+        formatted_start = start_date.strftime("%Y-%m-%d")
+        formatted_end = end_date.strftime("%Y-%m-%d")
+        
         data_rows = []
         chunk_size = 50
         for i in range(0, len(kw_ids), chunk_size):
-            chunk_ids = kw_ids[i:i+chunk_size]
-            params = {
-                'ids': chunk_ids,
-                'fields': '["impCnt","clkCnt"]',
-                'timeRange': f'{{"since":"{formatted_start}","until":"{formatted_end}"}}'
-            }
-            headers = get_header("GET", stats_uri, api_key, secret_key, customer_id)
-            response = requests.get(f"{BASE_URL}{stats_uri}", params=params, headers=headers)
+            chunk_ids = tuple(kw_ids[i:i+chunk_size])
+            c_status_code, stats_json = _fetch_keyword_stats_chunk_cached(customer_id, api_key, secret_key, chunk_ids, formatted_start, formatted_end)
             
-            if response.status_code == 200:
-                stats_json = response.json()
-                if 'data' in stats_json:
+            if c_status_code == 200:
+                if stats_json and 'data' in stats_json:
                     for stat in stats_json['data']:
                         kw_id = stat.get('id')
                         kw_name = kw_map.get(kw_id, "알 수 없는 키워드")
@@ -669,6 +712,11 @@ with col_date1:
     start_date = st.date_input("조회 시작일", value=last_monday)
 with col_date2:
     end_date = st.date_input("조회 종료일", value=last_sunday)
+
+# [보완 가이드 적용] 날짜 무결성 실시간 선후 검증 로직 추가
+if start_date > end_date:
+    st.error("⚠️ 조회 시작일은 종료일보다 이전 날짜여야 합니다.")
+    st.stop()
 
 st.markdown("### 광고 유형")
 
@@ -834,7 +882,8 @@ if show_data:
             </div>
             """
             iframe_height = get_table_iframe_height(date_df, is_summary=False)
-            st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=False)
+            allow_scrolling = iframe_height >= 600
+            st.components.v1.html(wrapped_date_html, height=iframe_height, scrolling=allow_scrolling)
             
         # (2) 노출수, 클릭수 표 - 빈 값("")을 주어 타이틀 없이 수치와 복사 단추만 콤팩트하게 출력
         with col1:
@@ -856,3 +905,5 @@ if show_data:
         st.success("조회가 완료되었습니다!")
     else:
         st.error("해당 광고그룹에 해당하는 일별 상세 통계 정보가 부존재합니다.")
+
+--- END OF FILE app.py ---
